@@ -18,12 +18,12 @@ class Orbiter {
         return this.launcher.launch(this.launcher.storedSecret);
       })
       .catch(err => {
-        this.status = 'Failed: ' + x.StringValue;
-        var pass = prompt(x.StringValue + `\n\nInput a secret:`);
+        this.status = 'Failed: ' + err;
+        var pass = prompt(`${err}\n\nInput a secret:`);
         if (pass) {
           return this.launcher.launch(pass);
         }
-        return err;
+        throw err;
       })
       .then(path => {
         return this.launch(this.launcher.endpoint, path);
