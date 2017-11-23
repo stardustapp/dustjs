@@ -952,6 +952,11 @@ class Orbiter {
 }class SkylinkHttpTransport {
   constructor(endpoint) {
     this.endpoint = endpoint;
+
+    // Mark good once a ping goes in. Never mark done.
+    var doneAnswer;
+    this.connPromise = this.exec({Op: 'ping'});
+    this.donePromise = new Promise((resolve, reject) => doneAnswer = {resolve, reject});
   }
 
   // noop. TODO: prevent requests when not started
@@ -962,7 +967,7 @@ class Orbiter {
 
   exec(request) {
     if (request.Op === 'subscribe') {
-      throw new Error("HTTP transport does not support subscriptions");
+      return Promise.reject(new Error("HTTP transport does not support subscriptions"));
     }
 
     return fetch(this.endpoint, {
@@ -983,7 +988,7 @@ class Orbiter {
     if (resp.status >= 200 && resp.status < 400) {
       return resp;
     } else {
-      return Promise.reject(`Stardust op failed with HTTP ${resp.status}`);
+      return Promise.reject(new Error(`Stardust op failed with HTTP ${resp.status}`));
     }
   }
 
@@ -998,11 +1003,12 @@ class Orbiter {
     }
   }
 }class SkylinkWsTransport {
-  constructor(endpoint, stats) {
+  constructor(endpoint, stats, oneshot) {
     this.endpoint = endpoint;
     this.stats = stats;
     this.waitingReceivers = [];
     this.channels = {};
+    this.oneshot = oneshot || false;
 
     this.transformResp = this.transformResp.bind(this);
 
@@ -1013,68 +1019,81 @@ class Orbiter {
   // TODO: report the state discontinuity downstream
   reset() {
     if (this.ws) {
+      if (this.oneshot) {
+        throw new Error('One-shot websocket skylink was asked to reset');
+      }
       console.log('Resetting Websocket transport');
       this._stop();
     }
 
-    this.connPromise = new Promise((resolve, reject) => {
-      console.log(`Starting Skylink Websocket to ${this.endpoint}`);
+    var connAnswer, doneAnswer;
+    this.connPromise = new Promise((resolve, reject) => connAnswer = {resolve, reject});
+    this.donePromise = new Promise((resolve, reject) => doneAnswer = {resolve, reject});
 
-      this.ws = new WebSocket(this.endpoint);
-      this.ws.onmessage = msg => {
-        const d = JSON.parse(msg.data);
+    console.log(`Starting Skylink Websocket to ${this.endpoint}`);
 
-        // Detect and route continuations
-        if (d.Chan && d.Status != "Ok") {
-          // find the target
-          const chan = this.channels[d.Chan];
-          if (!chan) {
-            console.warn("skylink received unroutable packet:", d);
-            return;
-          }
+    this.ws = new WebSocket(this.endpoint);
+    this.ws.onmessage = msg => {
+      const d = JSON.parse(msg.data);
 
-          // pass the message
-          chan.handle(d);
-          this.stats.pkts++;
-          if (d.Status !== "Next") {
-            delete this.channels[d.Chan];
-            this.stats.chans--;
-          }
+      // Detect and route continuations
+      if (d.Chan && d.Status != "Ok") {
+        // find the target
+        const chan = this.channels[d.Chan];
+        if (!chan) {
+          console.warn("skylink received unroutable packet:", d);
           return;
-
-        } else {
-          // Not a continuation. Process w/ next lockstep receiver.
-          const receiver = this.waitingReceivers.shift();
-          if (receiver) {
-            return receiver.resolve(d);
-          }
         }
 
-        console.warn("skylink received skylink payload without receiver:", d);
-      };
-
-      this.ws.onopen = () => resolve();
-      this.ws.onclose = () => {
-        if (this.ws != null) {
-          // this was unexpected
-          console.log('Auto-reconnecting Skylink websocket post-close');
-          this.reset();
+        // pass the message
+        chan.handle(d);
+        this.stats.pkts++;
+        if (d.Status !== "Next") {
+          delete this.channels[d.Chan];
+          this.stats.chans--;
         }
-      };
-      this.ws.onerror = () => {
-        this.ws = null; // prevent reconnect onclose
-        reject(new Error(`Error opening skylink websocket. Will not retry.`));
-      };
+        return;
 
-      return this.connPromise;
-    })
+      } else {
+        // Not a continuation. Process w/ next lockstep receiver.
+        const receiver = this.waitingReceivers.shift();
+        if (receiver) {
+          return receiver.resolve(d);
+        }
+      }
+
+      console.warn("skylink received skylink payload without receiver:", d);
+    };
+
+    this.ws.onopen = () => connAnswer.resolve();
+    this.ws.onclose = () => {
+      if (this.oneshot) {
+        doneAnswer.resolve();
+        console.log('Skylink websocket transport has completed, due to WS being closed');
+        this.ws = null;
+        this.stop();
+        return;
+      }
+      if (this.ws != null) {
+        // this was unexpected
+        console.log('Auto-reconnecting Skylink websocket post-close');
+        this.reset();
+      }
+    };
+    this.ws.onerror = (err) => {
+      this.ws = null; // prevent reconnect onclose
+      doneAnswer.reject(new Error(`Skylink websocket encountered ${err}`));
+      connAnswer.reject(new Error(`Error opening skylink websocket. Will not retry. ${err}`));
+    };
 
     // make sure the new connection has what downstream needs
     this.connPromise
       .then(() => {
         console.log('Websocket connection ready - state checks passed');
       }, err => {
-        alert(`New Skylink connection failed the healthcheck.\nYou may need to restart the app.\n\n${err}`);
+        if (!this.oneshot) {
+          alert(`New Skylink connection failed the healthcheck.\nYou may need to restart the app.\n\n${err}`);
+        }
         console.log('Websocket connection checks failed', err);
       });
   }
@@ -1082,6 +1101,9 @@ class Orbiter {
   // gets a promise for a live connection, possibly making it
   getConn() {
     if (this.ws && this.ws.readyState > 1) {
+      if (this.oneshot) {
+        return Promise.reject(`One-shot websocket skylink is in a terminal state`);
+      }
       console.warn(`Reconnecting Skylink websocket on-demand due to readyState`);
       this.reset();
     }
@@ -1108,6 +1130,8 @@ class Orbiter {
   }
 
   stop() {
+    // TODO: close out all live channels
+
     console.log('Shutting down Websocket transport');
     if (this.ws) {
       this.ws.close();
@@ -1115,7 +1139,9 @@ class Orbiter {
     clearInterval(this.pingTimer);
 
     this._stop();
-    this.connPromise = null;
+    if (!this.oneshot) {
+      this.connPromise = null;
+    }
   }
 
   exec(request) {

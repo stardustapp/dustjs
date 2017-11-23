@@ -1,6 +1,11 @@
 class SkylinkHttpTransport {
   constructor(endpoint) {
     this.endpoint = endpoint;
+
+    // Mark good once a ping goes in. Never mark done.
+    var doneAnswer;
+    this.connPromise = this.exec({Op: 'ping'});
+    this.donePromise = new Promise((resolve, reject) => doneAnswer = {resolve, reject});
   }
 
   // noop. TODO: prevent requests when not started
@@ -11,7 +16,7 @@ class SkylinkHttpTransport {
 
   exec(request) {
     if (request.Op === 'subscribe') {
-      throw new Error("HTTP transport does not support subscriptions");
+      return Promise.reject(new Error("HTTP transport does not support subscriptions"));
     }
 
     return fetch(this.endpoint, {
@@ -32,7 +37,7 @@ class SkylinkHttpTransport {
     if (resp.status >= 200 && resp.status < 400) {
       return resp;
     } else {
-      return Promise.reject(`Stardust op failed with HTTP ${resp.status}`);
+      return Promise.reject(new Error(`Stardust op failed with HTTP ${resp.status}`));
     }
   }
 
