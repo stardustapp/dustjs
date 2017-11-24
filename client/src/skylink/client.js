@@ -261,10 +261,10 @@ class Skylink {
   startTransport() {
     switch (this.protocol) {
       case 'ws':
-        this.transport = new SkylinkWsTransport(this.endpoint, this.stats);
+        this.transport = new SkylinkWsTransport(this.endpoint, this.stats, true);
         break;
       case 'http':
-        this.transport = new SkylinkHttpTransport(this.endpoint, this.stats);
+        this.transport = new SkylinkHttpTransport(this.endpoint, this.stats, true);
         break;
       default:
         alert(`Unknown Skylink transport protocol "${this.protocol}"`);

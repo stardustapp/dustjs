@@ -746,10 +746,10 @@ class Skylink {
   startTransport() {
     switch (this.protocol) {
       case 'ws':
-        this.transport = new SkylinkWsTransport(this.endpoint, this.stats);
+        this.transport = new SkylinkWsTransport(this.endpoint, this.stats, true);
         break;
       case 'http':
-        this.transport = new SkylinkHttpTransport(this.endpoint, this.stats);
+        this.transport = new SkylinkHttpTransport(this.endpoint, this.stats, true);
         break;
       default:
         alert(`Unknown Skylink transport protocol "${this.protocol}"`);
@@ -947,7 +947,12 @@ class Orbiter {
     console.log('Orbiter launched, at', path);
     this.status = 'Ready';
     this.skylink = new Skylink(path, endpoint);
-
+    this.skylink.transport.donePromise.then(() => {
+      this.status = 'Offline';
+    }, (err) => {
+      this.status = 'Crashed';
+      throw err;
+    });
   }
 }class SkylinkHttpTransport {
   constructor(endpoint) {
@@ -1100,6 +1105,9 @@ class Orbiter {
 
   // gets a promise for a live connection, possibly making it
   getConn() {
+    if (this.oneshot && !this.ws) {
+       return Promise.reject(`One-shot websocket skylink is no longer running`);
+    }
     if (this.ws && this.ws.readyState > 1) {
       if (this.oneshot) {
         return Promise.reject(`One-shot websocket skylink is in a terminal state`);

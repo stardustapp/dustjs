@@ -34,6 +34,11 @@ class Orbiter {
     console.log('Orbiter launched, at', path);
     this.status = 'Ready';
     this.skylink = new Skylink(path, endpoint);
-
+    this.skylink.transport.donePromise.then(() => {
+      this.status = 'Offline';
+    }, (err) => {
+      this.status = 'Crashed';
+      throw err;
+    });
   }
 }

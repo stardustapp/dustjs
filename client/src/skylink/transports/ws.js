@@ -96,6 +96,9 @@ class SkylinkWsTransport {
 
   // gets a promise for a live connection, possibly making it
   getConn() {
+    if (this.oneshot && !this.ws) {
+       return Promise.reject(`One-shot websocket skylink is no longer running`);
+    }
     if (this.ws && this.ws.readyState > 1) {
       if (this.oneshot) {
         return Promise.reject(`One-shot websocket skylink is in a terminal state`);
