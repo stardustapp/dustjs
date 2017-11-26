@@ -228,7 +228,7 @@ class RecordSubscription {
       } else {
         console.warn('record sub did not handle', pkt);
       }
-    });
+    }, this.onError.bind(this));
   }
 
   stop() {
@@ -735,6 +735,7 @@ class MountTable {
   handleNotif({type, path, entry}) {
     // Trigger reconsile logic when resyncing
     if (this.state == 'Resyncing') {
+      console.warn('WARN: resyncing', type, 'path', path);
       switch (type) {
         case 'Added':
           if (this.cache.has(path)) {

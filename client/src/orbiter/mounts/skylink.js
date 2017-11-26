@@ -33,6 +33,7 @@ class ResumableSub {
   handleNotif({type, path, entry}) {
     // Trigger reconsile logic when resyncing
     if (this.state == 'Resyncing') {
+      console.warn('WARN: resyncing', type, 'path', path);
       switch (type) {
         case 'Added':
           if (this.cache.has(path)) {

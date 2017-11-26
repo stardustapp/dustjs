@@ -28,7 +28,7 @@ class RecordSubscription {
       } else {
         console.warn('record sub did not handle', pkt);
       }
-    });
+    }, this.onError.bind(this));
   }
 
   stop() {
