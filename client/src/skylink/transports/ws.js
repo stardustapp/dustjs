@@ -77,6 +77,13 @@ class SkylinkWsTransport {
       }
     };
     this.ws.onerror = (err) => {
+      if (this.oneshot) {
+        doneAnswer.resolve();
+        console.log('Skylink websocket transport has failed, error:', err);
+        this.ws = null;
+        this.stop();
+        return;
+      }
       this.ws = null; // prevent reconnect onclose
       doneAnswer.reject(new Error(`Skylink websocket encountered ${err}`));
       connAnswer.reject(new Error(`Error opening skylink websocket. Will not retry. ${err}`));
@@ -126,11 +133,16 @@ class SkylinkWsTransport {
       x.reject(error);
     });
     this.waitingReceivers.length = 0;
-  }
+
+    Object.keys(this.channels).forEach(chanId => {
+      const chan = this.channels[chanId];
+      // TODO: this could be richer
+      chan.handle({Status: 'Error', Output: {Type: 'String', StringValue: ''+error}});
+    });
+    this.channels = {};
+}
 
   stop() {
-    // TODO: close out all live channels
-
     console.log('Shutting down Websocket transport');
     if (this.ws) {
       this.ws.close();

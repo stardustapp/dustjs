@@ -10,7 +10,7 @@ class Channel {
   // add a packet to process after all other existing packets process
   handle(packet) {
     this.queue.push(packet);
-    if (this.queue.length == 1) {
+    if (this.queue.length == 1 && this.callbacks) {
       // if we're alone at the front, let's kick it off
       this.burnBacklog();
     }
@@ -46,14 +46,32 @@ class Channel {
     }
   }
 
+  /////////////////
+  // Public API
 
-  forEach(effect) {
+  forEach(effect, errorFinisher, doneFinisher) {
+    if (!errorFinisher) {
+      errorFinisher = (pkt) => {
+        console.warn('Channel #', this.id, "encountered an Error,",
+                     "but no finalizer was added to handle it.", pkt);
+      };
+    }
+    if (!doneFinisher) {
+      doneFinisher = (pkt) => {
+        console.log('Channel #', this.id, 'came to an end. No one cared.');
+      };
+    }
+
     this.start({
       onNext(x) {
         effect(x.Output);
       },
-      onError(x) { chan.handle(x); },
-      onDone(x) { chan.handle(x); },
+      onError(x) {
+        errorFinisher(x.Output);
+      },
+      onDone(x) {
+        doneFinisher(x.Output);
+      },
     });
     return new Channel('void');
   }
