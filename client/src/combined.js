@@ -352,7 +352,8 @@ class RecordSubscription {
     if (parts.length == 1) {
       // deleted document
       const [id] = parts;
-      this.idMap.delete(id, doc);
+      const doc = this.idMap.get(id);
+      this.idMap.delete(id);
 
       // remove doc from output
       const idx = this.items.indexOf(doc);
@@ -723,32 +724,35 @@ class MountTable {
     });
   }
 
-  finalizeResync() {
-    this.unSyncedKeys.forEach(key => {
-      this.sendNotif('Removed', key, null);
-    });
-    this.unSyncedKeys.clear();
-
-    this.state = 'Ready';
-  }
-
   handleNotif({type, path, entry}) {
     // Trigger reconsile logic when resyncing
     if (this.state == 'Resyncing') {
-      console.warn('WARN: resyncing', type, 'path', path);
+      console.log('resyncing', type, 'path', path);
       switch (type) {
         case 'Added':
+          this.unSyncedKeys.delete(path);
           if (this.cache.has(path)) {
             // TODO: compare
-            console.log(path, this.cache.get(path), entry);
+            console.log('resync saw:', path, this.cache.get(path), entry);
             //if (this.cache.get(path)
             // TODO: send Changed
           } else {
             this.sendNotif(type, path, entry);
           }
+          break;
 
         case 'Ready':
-          this.finalizeResync();
+          console.log('completing resync of', this.label);
+          // set first in case the Removed crashes
+          this.state = 'Ready';
+
+          // TODO: removing a prefix implicitly removes its children
+          this.unSyncedKeys.forEach(key => {
+            console.warn('resync of', this.label, 'removing key', key);
+            this.sendNotif('Removed', key, null);
+          });
+          this.unSyncedKeys.clear();
+
           break;
 
         default:
@@ -804,7 +808,7 @@ class MountTable {
     this.channelGetter().then(channel => {
       console.log('resumable sub got new channel okay for', this.label);
       this.state = 'Resyncing';
-      this.wireChannel(chan);
+      this.wireChannel(channel);
     }, err => {
       this.state = 'Crashed: Reconnect failed: ' + JSON.stringify(err);
       console.log('Resumable sub', this.label, 'still cannot connect, got error:', err, '- waiting longer');

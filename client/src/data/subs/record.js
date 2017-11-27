@@ -152,7 +152,8 @@ class RecordSubscription {
     if (parts.length == 1) {
       // deleted document
       const [id] = parts;
-      this.idMap.delete(id, doc);
+      const doc = this.idMap.get(id);
+      this.idMap.delete(id);
 
       // remove doc from output
       const idx = this.items.indexOf(doc);
