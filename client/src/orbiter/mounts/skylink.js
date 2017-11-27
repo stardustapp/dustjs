@@ -24,16 +24,25 @@ class ResumableSub {
   handleNotif({type, path, entry}) {
     // Trigger reconsile logic when resyncing
     if (this.state == 'Resyncing') {
-      console.log('resyncing', type, 'path', path);
+      //console.log('resyncing', type, 'path', path);
       switch (type) {
         case 'Added':
           this.unSyncedKeys.delete(path);
           if (this.cache.has(path)) {
-            // TODO: compare
-            console.log('resync saw:', path, this.cache.get(path), entry);
-            //if (this.cache.get(path)
-            // TODO: send Changed
+
+            // compare previous and new entries
+            const prevEnt = this.cache.get(path);
+            if (prevEnt.constructor == Object && entry.constructor == Object) {
+              // both are folders, move on
+            } else if (prevEnt != entry) {
+              // they're primitives and they're DIFFERENT
+              this.sendNotif('Changed', path, entry);
+              console.log('resync saw change:', path, , entry);
+            }
+
           } else {
+            // we didn't have this path last time
+            // let's pass it down
             this.sendNotif(type, path, entry);
           }
           break;
@@ -48,8 +57,8 @@ class ResumableSub {
             console.warn('resync of', this.label, 'removing key', key);
             this.sendNotif('Removed', key, null);
           });
-          this.unSyncedKeys.clear();
 
+          this.unSyncedKeys.clear();
           break;
 
         default:
