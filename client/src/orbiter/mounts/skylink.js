@@ -34,16 +34,18 @@ class ResumableSub {
             const prevEnt = this.cache.get(path);
             if (prevEnt.constructor == Object && entry.constructor == Object) {
               // both are folders, move on
-            } else if (prevEnt != entry) {
+            } else if (prevEnt != entry||'') {
               // they're primitives and they're DIFFERENT
               this.sendNotif('Changed', path, entry);
-              console.log('resync saw change:', path, , entry);
+              this.cache.set(path, entry||'');
+              console.log('resync saw change:', path, prevEnt, entry);
             }
 
           } else {
             // we didn't have this path last time
             // let's pass it down
             this.sendNotif(type, path, entry);
+            this.cache.set(path, entry||'');
           }
           break;
 
@@ -69,7 +71,7 @@ class ResumableSub {
       switch (type) {
         case 'Added':
         case 'Changed':
-          this.cache.set(path, entry);
+          this.cache.set(path, entry||'');
           break;
 
         case 'Ready':
@@ -145,7 +147,22 @@ class SkylinkMount {
     this.updateStatus = updateStatus;
 
     this.api = {};
+    this.liveSubs = [];
     this.buildApis();
+
+    // timer to check on subs and represent in mount status
+    setInterval(() => {
+      this.liveSubs = this.liveSubs.filter(x => x.state != 'Completed');
+      const pendingSubs = this.liveSubs.filter(x => x.state != 'Ready').length;
+
+      if ((this.status == 'Connected' || this.status == 'Pending') && !pendingSubs) {
+        this.status = 'Ready';
+        this.updateStatus();
+      } else if ((this.status == 'Connected' || this.status == 'Ready') && pendingSubs) {
+        this.status = 'Pending';
+        this.updateStatus();
+      }
+    }, 1000);
 
     this.connect();
   }
@@ -169,7 +186,7 @@ class SkylinkMount {
             return Promise.reject('Skylink is not re-established yet');
           }
         });
-        window.subs.push(newSub);
+        this.liveSubs.push(newSub);
         return newSub;
       });
 
@@ -184,7 +201,7 @@ class SkylinkMount {
     this.skylink = new Skylink(this.path, this.endpoint);
     this.skylink.stats = this.stats;
     this.skylink.transport.connPromise.then(() => {
-      this.status = 'Ready';
+      this.status = 'Connected';
       this.updateStatus();
     });
 

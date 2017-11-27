@@ -727,17 +727,28 @@ class MountTable {
   handleNotif({type, path, entry}) {
     // Trigger reconsile logic when resyncing
     if (this.state == 'Resyncing') {
-      console.log('resyncing', type, 'path', path);
+      //console.log('resyncing', type, 'path', path);
       switch (type) {
         case 'Added':
           this.unSyncedKeys.delete(path);
           if (this.cache.has(path)) {
-            // TODO: compare
-            console.log('resync saw:', path, this.cache.get(path), entry);
-            //if (this.cache.get(path)
-            // TODO: send Changed
+
+            // compare previous and new entries
+            const prevEnt = this.cache.get(path);
+            if (prevEnt.constructor == Object && entry.constructor == Object) {
+              // both are folders, move on
+            } else if (prevEnt != entry||'') {
+              // they're primitives and they're DIFFERENT
+              this.sendNotif('Changed', path, entry);
+              this.cache.set(path, entry||'');
+              console.log('resync saw change:', path, prevEnt, entry);
+            }
+
           } else {
+            // we didn't have this path last time
+            // let's pass it down
             this.sendNotif(type, path, entry);
+            this.cache.set(path, entry||'');
           }
           break;
 
@@ -751,8 +762,8 @@ class MountTable {
             console.warn('resync of', this.label, 'removing key', key);
             this.sendNotif('Removed', key, null);
           });
-          this.unSyncedKeys.clear();
 
+          this.unSyncedKeys.clear();
           break;
 
         default:
@@ -763,7 +774,7 @@ class MountTable {
       switch (type) {
         case 'Added':
         case 'Changed':
-          this.cache.set(path, entry);
+          this.cache.set(path, entry||'');
           break;
 
         case 'Ready':
@@ -839,7 +850,22 @@ class SkylinkMount {
     this.updateStatus = updateStatus;
 
     this.api = {};
+    this.liveSubs = [];
     this.buildApis();
+
+    // timer to check on subs and represent in mount status
+    setInterval(() => {
+      this.liveSubs = this.liveSubs.filter(x => x.state != 'Completed');
+      const pendingSubs = this.liveSubs.filter(x => x.state != 'Ready').length;
+
+      if ((this.status == 'Connected' || this.status == 'Pending') && !pendingSubs) {
+        this.status = 'Ready';
+        this.updateStatus();
+      } else if ((this.status == 'Connected' || this.status == 'Ready') && pendingSubs) {
+        this.status = 'Pending';
+        this.updateStatus();
+      }
+    }, 1000);
 
     this.connect();
   }
@@ -863,7 +889,7 @@ class SkylinkMount {
             return Promise.reject('Skylink is not re-established yet');
           }
         });
-        window.subs.push(newSub);
+        this.liveSubs.push(newSub);
         return newSub;
       });
 
@@ -878,7 +904,7 @@ class SkylinkMount {
     this.skylink = new Skylink(this.path, this.endpoint);
     this.skylink.stats = this.stats;
     this.skylink.transport.connPromise.then(() => {
-      this.status = 'Ready';
+      this.status = 'Connected';
       this.updateStatus();
     });
 
@@ -1408,6 +1434,7 @@ class SkylinkHttpTransport {
     };
     this.ws.onerror = (err) => {
       if (this.oneshot) {
+        connAnswer.reject(new Error(`Error opening skylink websocket. Will not retry. ${err}`));
         doneAnswer.resolve();
         console.log('Skylink websocket transport has failed, error:', err);
         this.ws = null;
@@ -1415,8 +1442,8 @@ class SkylinkHttpTransport {
         return;
       }
       this.ws = null; // prevent reconnect onclose
-      doneAnswer.reject(new Error(`Skylink websocket encountered ${err}`));
       connAnswer.reject(new Error(`Error opening skylink websocket. Will not retry. ${err}`));
+      doneAnswer.reject(new Error(`Skylink websocket encountered ${err}`));
     };
 
     // make sure the new connection has what downstream needs

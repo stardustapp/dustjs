@@ -78,6 +78,7 @@ class SkylinkWsTransport {
     };
     this.ws.onerror = (err) => {
       if (this.oneshot) {
+        connAnswer.reject(new Error(`Error opening skylink websocket. Will not retry. ${err}`));
         doneAnswer.resolve();
         console.log('Skylink websocket transport has failed, error:', err);
         this.ws = null;
@@ -85,8 +86,8 @@ class SkylinkWsTransport {
         return;
       }
       this.ws = null; // prevent reconnect onclose
-      doneAnswer.reject(new Error(`Skylink websocket encountered ${err}`));
       connAnswer.reject(new Error(`Error opening skylink websocket. Will not retry. ${err}`));
+      doneAnswer.reject(new Error(`Skylink websocket encountered ${err}`));
     };
 
     // make sure the new connection has what downstream needs
