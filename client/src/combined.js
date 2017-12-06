@@ -638,6 +638,8 @@ class MountTable {
         return mount.api[op](subPath, ...args);
       };
     });
+
+    this.api['mkdirp'] = this.mkdirp;
   }
 
   updateStatus() {
@@ -700,6 +702,29 @@ class MountTable {
       throw err;
     });
     */
+  }
+
+  // For backwards compat, sorry
+  mkdirp(path) {
+    const parts = path.slice(1).split('/');
+    var path = '';
+    const nextPart = () => {
+      if (parts.length === 0) {
+        return true;
+      }
+      const part = parts.shift();
+      path += '/' + part;
+      return this.get(path)
+        .then(x => true, x => {
+          console.log('mkdirp got failure', x);
+          if (x.Ok === false) {
+            return this.store(path, Skylink.Folder(part));
+          }
+          return Promise.reject(x);
+        })
+        .then(nextPart);
+    };
+    return nextPart();
   }
 }class ResumableSub {
   constructor(label, initialChannel, channelGetter) {
