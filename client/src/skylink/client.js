@@ -1,9 +1,9 @@
 "use strict";
 
 class Skylink {
-  constructor(prefix, endpoint) {
+  constructor(prefix, endpoint, stats) {
     this.prefix = prefix || '';
-    this.stats = {
+    this.stats = stats || {
       ops: 0,
       chans: 0,
       pkts: 0,

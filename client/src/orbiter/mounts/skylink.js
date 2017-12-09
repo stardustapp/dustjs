@@ -198,8 +198,7 @@ class SkylinkMount {
     this.status = 'Connecting...';
     this.updateStatus();
 
-    this.skylink = new Skylink(this.path, this.endpoint);
-    this.skylink.stats = this.stats;
+    this.skylink = new Skylink(this.path, this.endpoint, this.stats);
     this.skylink.transport.connPromise.then(() => {
       this.status = 'Connected';
       this.updateStatus();
