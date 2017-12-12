@@ -802,6 +802,10 @@ class MountTable {
           this.cache.set(path, entry||'');
           break;
 
+        case 'Removed':
+          this.cache.delete(path);
+          break;
+
         case 'Ready':
           this.state = 'Ready';
           break;
