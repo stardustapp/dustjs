@@ -29,7 +29,11 @@ class SkylinkHttpTransport {
     })
     .then(this.checkHttpOk)
     .then(x => x.json())
-    .then(this.checkOk);
+    .then(this.checkOk)
+    .then(x => x, err => {
+      console.warn('Failed netop:', request);
+      return Promise.reject(err);
+    });
   }
 
   // Chain after a fetch() promise with .then()

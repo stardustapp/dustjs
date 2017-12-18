@@ -1360,7 +1360,11 @@ class SkylinkHttpTransport {
     })
     .then(this.checkHttpOk)
     .then(x => x.json())
-    .then(this.checkOk);
+    .then(this.checkOk)
+    .then(x => x, err => {
+      console.warn('Failed netop:', request);
+      return Promise.reject(err);
+    });
   }
 
   // Chain after a fetch() promise with .then()
@@ -1546,7 +1550,11 @@ class SkylinkHttpTransport {
         this.waitingReceivers.push({resolve, reject});
         this.ws.send(JSON.stringify(request));
       }))
-      .then(this.transformResp);
+      .then(this.transformResp)
+      .then(x => x, err => {
+        console.warn('Failed netop:', request);
+        return Promise.reject(err);
+      });
   }
 
   // Chain after a json promise with .then()

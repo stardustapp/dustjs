@@ -162,7 +162,11 @@ class SkylinkWsTransport {
         this.waitingReceivers.push({resolve, reject});
         this.ws.send(JSON.stringify(request));
       }))
-      .then(this.transformResp);
+      .then(this.transformResp)
+      .then(x => x, err => {
+        console.warn('Failed netop:', request);
+        return Promise.reject(err);
+      });
   }
 
   // Chain after a json promise with .then()
