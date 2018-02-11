@@ -7,6 +7,7 @@ class RecordSubscription {
     this.sub = sub;
     this.basePath = opts.basePath;
     this.fields = opts.fields || [];
+    this.selfItems = this.fields.join(',') == '@';
     this.filter = opts.filter || {};
     this.stats = {
       hidden: 0,
@@ -58,7 +59,12 @@ class RecordSubscription {
         _id: id,
         _path: this.basePath + '/' + id,
       };
-      this.fields.forEach(x => doc[x] = null);
+      if (this.selfItems) {
+        doc.value = entry;
+        console.log('added', entry);
+      } else if (this.fields.length) {
+        this.fields.forEach(x => doc[x] = null);
+      }
 
       // store it
       this.idMap.set(id, doc);
@@ -109,7 +115,13 @@ class RecordSubscription {
     const parts = path.split('/');
     if (parts.length == 1) {
       // replaced document
-      console.warn('recordsub got changed packet for entire document. not implemented!', path, entry);
+      if (this.selfItems) {
+        const [id] = parts;
+        const doc = this.idMap.get(id);
+        doc.value = entry;
+      } else if (this.fields.length) {
+        console.warn('recordsub got changed packet for entire document. not implemented!', path, entry);
+      }
 
     } else if (parts.length == 2) {
       // changed field on existing doc
