@@ -19,7 +19,7 @@ class Channel {
   start(callbacks) {
     this.callbacks = callbacks;
     var item;
-    console.log('Starting channel #', this.id);
+    //console.log('Starting channel #', this.id);
     this.burnBacklog();
     while (item = this.queue.shift()) {
       this.route(item);

@@ -19,7 +19,7 @@ class Channel {
   start(callbacks) {
     this.callbacks = callbacks;
     var item;
-    console.log('Starting channel #', this.id);
+    //console.log('Starting channel #', this.id);
     this.burnBacklog();
     while (item = this.queue.shift()) {
       this.route(item);
@@ -139,7 +139,7 @@ class Channel {
 // accepts one depth and presents one reactive object once ready
 class FlatSubscription {
   constructor(sub) {
-    console.log('flat sub started');
+    //console.log('flat sub started');
     this.sub = sub;
     this.fields = {};
     this.status = 'Pending';
@@ -163,27 +163,27 @@ class FlatSubscription {
 
   onAdded(path, entry) {
     if (path) {
-      console.log('flat: added', path, entry);
+      //console.log('flat: added', path, entry);
       this.fields[path] = entry;
     }
   }
 
   onChanged(path, entry) {
     if (path) {
-      console.log('flat: changed', path, 'from', this.fields[path], 'to', entry);
+      //console.log('flat: changed', path, 'from', this.fields[path], 'to', entry);
       this.fields[path] = entry;
     }
   }
 
   onRemoved(path) {
     if (path) {
-      console.log('flat: removed', path);
+      //console.log('flat: removed', path);
       this.fields[path] = null;
     }
   }
 
   onReady() {
-    console.log('Flat subscription is ready.', this.fields);
+    //console.log('Flat subscription is ready.', this.fields);
     if (this.readyCbs) {
       this.readyCbs.resolve(this.fields);
       this.readyCbs = null;
@@ -261,7 +261,7 @@ class RecordSubscription {
       };
       if (this.selfItems) {
         doc.value = entry;
-        console.log('added', entry);
+       // console.log('added', entry);
       } else if (this.fields.length) {
         this.fields.forEach(x => doc[x] = null);
       }
@@ -391,7 +391,7 @@ class RecordSubscription {
   }
 
   onReady() {
-    console.log('Subscription is ready.', this.idMap);
+    //console.log('Subscription is ready.', this.idMap);
     if (this.readyCbs) {
       this.readyCbs.resolve(this.items);
       this.readyCbs = null;
@@ -409,7 +409,7 @@ class RecordSubscription {
 }// accepts zero depth and presents the root node
 class SingleSubscription {
   constructor(sub) {
-    console.log('single sub started');
+    //console.log('single sub started');
     this.sub = sub;
     this.api = {
       // TODO: stop: this.stop.bind(this),
@@ -444,25 +444,25 @@ class SingleSubscription {
   }
 
   onAdded(path, entry) {
-    console.log('single: added ', entry);
+    //console.log('single: added ', entry);
     this.api.val = entry;
     this.forEachCbs.forEach(cb => cb(entry));
   }
 
   onChanged(path, entry) {
-    console.log('single: changed from', this.api.val, 'to', entry);
+    //console.log('single: changed from', this.api.val, 'to', entry);
     this.api.val = entry;
     this.forEachCbs.forEach(cb => cb(entry));
   }
 
   onRemoved(path) {
-    console.log('single: removed');
+    //console.log('single: removed');
     this.api.val = null;
     this.forEachCbs.forEach(cb => cb(null));
   }
 
   onReady() {
-    console.log('Single subscription is ready.', this.api.val);
+    //console.log('Single subscription is ready.', this.api.val);
     if (this.readyCbs) {
       this.readyCbs.resolve(this.api);
       this.readyCbs = null;
@@ -530,11 +530,11 @@ return k({},n(this))}function Bc(){return n(this).overflow}function Cc(){return{
     }
     this.endpoint = `${protocol}://${this.domainName}/~~export/ws`;
 
-    console.log('Configuring orbiter launchsite for chart', chartName, '- app', appId);
+    //console.log('Configuring orbiter launchsite for chart', chartName, '- app', appId);
   }
 
   static forCurrentUserApp() {
-    console.info('Autoconfiguring orbiter for the current context...');
+    //console.info('Autoconfiguring orbiter for the current context...');
 
     // Discover appId from app's HTML document
     const appIdMeta = document.querySelector('meta[name=x-stardust-appid]');
@@ -551,23 +551,23 @@ return k({},n(this))}function Bc(){return n(this).overflow}function Cc(){return{
     }
     const chartName = location.pathname.split('/')[1].slice(1);
 
-    return new Launchpad(location.hostname, chartName, appId);
+    return new Launchpad(localStorage.domainName || location.hostname, chartName, appId);
   }
 
   // Discover saved secret from localStorage, if any
   get storedSecret() {
     const secretKey = `skychart.${this.chartName}.secret`;
     if (window.localStorage[secretKey]) {
-      console.info('Retrieving local secret for', this.chartName);
+      //console.info('Retrieving local secret for', this.chartName);
       return window.localStorage[secretKey];
     }
-    console.log('No known secret stored, returning nil');
+    //console.log('No known secret stored, returning nil');
     return null; // no secret is known
   }
 
   // Store the given secret to localStorage, or set falsey to clear
   set storedSecret(secret) {
-    console.info('Storing', secret.length, 'character secret for', this.chartName);
+    //console.info('Storing', secret.length, 'character secret for', this.chartName);
     const secretKey = `skychart.${this.chartName}.secret`;
     window.localStorage[secretKey] = secret || '';
   }
@@ -683,7 +683,7 @@ class MountTable {
 
   mount(path, type, opts) {
     opts = opts || {};
-    console.log('Mount request:', path, type, opts);
+    //console.log('Mount request:', path, type, opts);
 
     //const mount = {path, type, opts, status: 'Connecting'};
     var mount;
@@ -919,7 +919,7 @@ class SkylinkMount {
     });
 
     this.api.subscribe = (path, ...args) => {
-      console.log('skylink mount got subscribe on', args);
+      //console.log('skylink mount got subscribe on', args);
 
       const promise = this.skylink.subscribe(path, ...args);
       return promise.then(sub => {
@@ -1493,7 +1493,7 @@ class SkylinkHttpTransport {
     // make sure the new connection has what downstream needs
     this.connPromise
       .then(() => {
-        console.log('Websocket connection ready - state checks passed');
+        //console.log('Websocket connection ready - state checks passed');
       }, err => {
         if (!this.oneshot) {
           alert(`New Skylink connection failed the healthcheck.\nYou may need to restart the app.\n\n${err}`);
@@ -1580,7 +1580,7 @@ class SkylinkHttpTransport {
     // detect channel creations and register them
     if (obj.Chan) {
       this.stats.chans++;
-      console.log('skylink creating channel', obj.Chan);
+      //console.log('skylink creating channel', obj.Chan);
       const chan = new Channel(obj.Chan);
       this.channels[obj.Chan] = chan;
       return {

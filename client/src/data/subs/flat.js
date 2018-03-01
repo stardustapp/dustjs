@@ -1,7 +1,7 @@
 // accepts one depth and presents one reactive object once ready
 class FlatSubscription {
   constructor(sub) {
-    console.log('flat sub started');
+    ///console.log('flat sub started');
     this.sub = sub;
     this.fields = {};
     this.status = 'Pending';
@@ -25,27 +25,27 @@ class FlatSubscription {
 
   onAdded(path, entry) {
     if (path) {
-      console.log('flat: added', path, entry);
+      ///console.log('flat: added', path, entry);
       this.fields[path] = entry;
     }
   }
 
   onChanged(path, entry) {
     if (path) {
-      console.log('flat: changed', path, 'from', this.fields[path], 'to', entry);
+      ///console.log('flat: changed', path, 'from', this.fields[path], 'to', entry);
       this.fields[path] = entry;
     }
   }
 
   onRemoved(path) {
     if (path) {
-      console.log('flat: removed', path);
+      ///console.log('flat: removed', path);
       this.fields[path] = null;
     }
   }
 
   onReady() {
-    console.log('Flat subscription is ready.', this.fields);
+    //console.log('Flat subscription is ready.', this.fields);
     if (this.readyCbs) {
       this.readyCbs.resolve(this.fields);
       this.readyCbs = null;

@@ -35,7 +35,7 @@ class Launchpad {
     }
     const chartName = location.pathname.split('/')[1].slice(1);
 
-    return new Launchpad(location.hostname, chartName, appId);
+    return new Launchpad(localStorage.domainName || location.hostname, chartName, appId);
   }
 
   // Discover saved secret from localStorage, if any
