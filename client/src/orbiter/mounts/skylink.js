@@ -179,7 +179,7 @@ class SkylinkMount {
     });
 
     this.api.subscribe = (path, ...args) => {
-      console.log('skylink mount got subscribe on', args);
+      //console.log('skylink mount got subscribe on', args);
 
       const promise = this.skylink.subscribe(path, ...args);
       return promise.then(sub => {

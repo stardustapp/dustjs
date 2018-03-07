@@ -1,7 +1,7 @@
 // accepts zero depth and presents the root node
 class SingleSubscription {
   constructor(sub) {
-    console.log('single sub started');
+    //console.log('single sub started');
     this.sub = sub;
     this.api = {
       // TODO: stop: this.stop.bind(this),
@@ -36,25 +36,25 @@ class SingleSubscription {
   }
 
   onAdded(path, entry) {
-    console.log('single: added ', entry);
+    //console.log('single: added ', entry);
     this.api.val = entry;
     this.forEachCbs.forEach(cb => cb(entry));
   }
 
   onChanged(path, entry) {
-    console.log('single: changed from', this.api.val, 'to', entry);
+    //console.log('single: changed from', this.api.val, 'to', entry);
     this.api.val = entry;
     this.forEachCbs.forEach(cb => cb(entry));
   }
 
   onRemoved(path) {
-    console.log('single: removed');
+    //console.log('single: removed');
     this.api.val = null;
     this.forEachCbs.forEach(cb => cb(null));
   }
 
   onReady() {
-    console.log('Single subscription is ready.', this.api.val);
+    //console.log('Single subscription is ready.', this.api.val);
     if (this.readyCbs) {
       this.readyCbs.resolve(this.api);
       this.readyCbs = null;

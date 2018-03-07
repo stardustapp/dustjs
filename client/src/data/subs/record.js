@@ -61,7 +61,7 @@ class RecordSubscription {
       };
       if (this.selfItems) {
         doc.value = entry;
-        console.log('added', entry);
+        //console.log('added', entry);
       } else if (this.fields.length) {
         this.fields.forEach(x => doc[x] = null);
       }
@@ -191,7 +191,7 @@ class RecordSubscription {
   }
 
   onReady() {
-    console.log('Subscription is ready.', this.idMap);
+    //console.log('Subscription is ready.', this.idMap);
     if (this.readyCbs) {
       this.readyCbs.resolve(this.items);
       this.readyCbs = null;

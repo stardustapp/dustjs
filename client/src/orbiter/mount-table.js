@@ -48,7 +48,7 @@ class MountTable {
 
   mount(path, type, opts) {
     opts = opts || {};
-    console.log('Mount request:', path, type, opts);
+    //console.log('Mount request:', path, type, opts);
 
     //const mount = {path, type, opts, status: 'Connecting'};
     var mount;

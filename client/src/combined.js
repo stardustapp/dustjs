@@ -261,7 +261,7 @@ class RecordSubscription {
       };
       if (this.selfItems) {
         doc.value = entry;
-       // console.log('added', entry);
+        //console.log('added', entry);
       } else if (this.fields.length) {
         this.fields.forEach(x => doc[x] = null);
       }
@@ -530,7 +530,7 @@ return k({},n(this))}function Bc(){return n(this).overflow}function Cc(){return{
     }
     this.endpoint = `${protocol}://${this.domainName}/~~export/ws`;
 
-    //console.log('Configuring orbiter launchsite for chart', chartName, '- app', appId);
+    console.log('Configuring orbiter launchsite for chart', chartName, '- app', appId);
   }
 
   static forCurrentUserApp() {
@@ -567,7 +567,7 @@ return k({},n(this))}function Bc(){return n(this).overflow}function Cc(){return{
 
   // Store the given secret to localStorage, or set falsey to clear
   set storedSecret(secret) {
-    //console.info('Storing', secret.length, 'character secret for', this.chartName);
+    console.info('Storing', secret.length, 'character secret for', this.chartName);
     const secretKey = `skychart.${this.chartName}.secret`;
     window.localStorage[secretKey] = secret || '';
   }

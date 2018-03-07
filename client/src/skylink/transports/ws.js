@@ -93,7 +93,7 @@ class SkylinkWsTransport {
     // make sure the new connection has what downstream needs
     this.connPromise
       .then(() => {
-        console.log('Websocket connection ready - state checks passed');
+        //console.log('Websocket connection ready - state checks passed');
       }, err => {
         if (!this.oneshot) {
           alert(`New Skylink connection failed the healthcheck.\nYou may need to restart the app.\n\n${err}`);
@@ -180,7 +180,7 @@ class SkylinkWsTransport {
     // detect channel creations and register them
     if (obj.Chan) {
       this.stats.chans++;
-      console.log('skylink creating channel', obj.Chan);
+      //console.log('skylink creating channel', obj.Chan);
       const chan = new Channel(obj.Chan);
       this.channels[obj.Chan] = chan;
       return {

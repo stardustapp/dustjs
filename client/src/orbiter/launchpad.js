@@ -18,7 +18,7 @@ class Launchpad {
   }
 
   static forCurrentUserApp() {
-    console.info('Autoconfiguring orbiter for the current context...');
+    //console.info('Autoconfiguring orbiter for the current context...');
 
     // Discover appId from app's HTML document
     const appIdMeta = document.querySelector('meta[name=x-stardust-appid]');
@@ -42,10 +42,10 @@ class Launchpad {
   get storedSecret() {
     const secretKey = `skychart.${this.chartName}.secret`;
     if (window.localStorage[secretKey]) {
-      console.info('Retrieving local secret for', this.chartName);
+      //console.info('Retrieving local secret for', this.chartName);
       return window.localStorage[secretKey];
     }
-    console.log('No known secret stored, returning nil');
+    //console.log('No known secret stored, returning nil');
     return null; // no secret is known
   }
 
