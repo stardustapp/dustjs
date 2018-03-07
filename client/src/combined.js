@@ -138,9 +138,10 @@ class Channel {
 }
 // accepts one depth and presents one reactive object once ready
 class FlatSubscription {
-  constructor(sub) {
+  constructor(sub, vm) {
     //console.log('flat sub started');
     this.sub = sub;
+    this.vm = vm;
     this.fields = {};
     this.status = 'Pending';
     this.readyPromise = new Promise((resolve, reject) => {
@@ -164,7 +165,11 @@ class FlatSubscription {
   onAdded(path, entry) {
     if (path) {
       //console.log('flat: added', path, entry);
-      this.fields[path] = entry;
+      if (this.vm) {
+        this.vm.$set(this.fields, path, entry);
+      } else {
+        this.fields[path] = entry;
+      }
     }
   }
 
