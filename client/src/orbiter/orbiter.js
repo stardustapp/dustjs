@@ -17,9 +17,12 @@ class Orbiter {
     };
   }
 
-  autoLaunch() {
+  autoLaunch(launcher) {
+    if (!launcher) {
+      launcher = Launchpad.forCurrentUserApp();
+    }
+    this.launcher = launcher;
     this.status = 'Launching';
-    this.launcher = Launchpad.forCurrentUserApp();
 
     const {chartName, domainName, appId} = this.launcher;
     const baseUri = `skylink://${chartName}@${domainName}/~${appId}`;
@@ -52,7 +55,6 @@ class Orbiter {
 
         //return this.launch(this.launcher.endpoint, path);
       });
-    ;
   }
 
   /*
@@ -70,4 +72,8 @@ class Orbiter {
       throw err;
     });
   }*/
+}
+
+if (typeof module !== "undefined" && module !== null) {
+  module.exports = Orbiter;
 }

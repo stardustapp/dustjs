@@ -104,3 +104,7 @@ class MountTable {
     return nextPart();
   }
 }
+
+if (typeof module !== "undefined" && module !== null) {
+  module.exports = MountTable;
+}

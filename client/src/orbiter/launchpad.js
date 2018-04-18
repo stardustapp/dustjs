@@ -40,6 +40,9 @@ class Launchpad {
 
   // Discover saved secret from localStorage, if any
   get storedSecret() {
+    if (this.providedSecret) {
+      return this.providedSecret;
+    }
     const secretKey = `skychart.${this.chartName}.secret`;
     if (window.localStorage[secretKey]) {
       //console.info('Retrieving local secret for', this.chartName);
@@ -116,4 +119,8 @@ class Launchpad {
         }
       });
   }
+}
+
+if (typeof module !== "undefined" && module !== null) {
+  module.exports = Launchpad;
 }

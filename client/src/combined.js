@@ -561,6 +561,9 @@ return k({},n(this))}function Bc(){return n(this).overflow}function Cc(){return{
 
   // Discover saved secret from localStorage, if any
   get storedSecret() {
+    if (this.providedSecret) {
+      return this.providedSecret;
+    }
     const secretKey = `skychart.${this.chartName}.secret`;
     if (window.localStorage[secretKey]) {
       //console.info('Retrieving local secret for', this.chartName);
@@ -638,7 +641,10 @@ return k({},n(this))}function Bc(){return n(this).overflow}function Cc(){return{
       });
   }
 }
-class MountTable {
+
+if (typeof module !== "undefined" && module !== null) {
+  module.exports = Launchpad;
+}class MountTable {
   constructor(baseUri, setStatus) {
     this.baseUri = baseUri || 'tmp://';
     this.mounts = new Map();
@@ -743,6 +749,10 @@ class MountTable {
     };
     return nextPart();
   }
+}
+
+if (typeof module !== "undefined" && module !== null) {
+  module.exports = MountTable;
 }class ResumableSub {
   constructor(label, initialChannel, channelGetter) {
     this.label = label;
@@ -965,6 +975,10 @@ class SkylinkMount {
       throw err;
     });
   }
+}
+
+if (typeof module !== "undefined" && module !== null) {
+  module.exports = SkylinkMount;
 }class Orbiter {
   constructor() {
     this.metadata = {};
@@ -984,9 +998,12 @@ class SkylinkMount {
     };
   }
 
-  autoLaunch() {
+  autoLaunch(launcher) {
+    if (!launcher) {
+      launcher = Launchpad.forCurrentUserApp();
+    }
+    this.launcher = launcher;
     this.status = 'Launching';
-    this.launcher = Launchpad.forCurrentUserApp();
 
     const {chartName, domainName, appId} = this.launcher;
     const baseUri = `skylink://${chartName}@${domainName}/~${appId}`;
@@ -1019,7 +1036,6 @@ class SkylinkMount {
 
         //return this.launch(this.launcher.endpoint, path);
       });
-    ;
   }
 
   /*
@@ -1037,6 +1053,10 @@ class SkylinkMount {
       throw err;
     });
   }*/
+}
+
+if (typeof module !== "undefined" && module !== null) {
+  module.exports = Orbiter;
 }"use strict";
 
 class Skylink {
@@ -1327,7 +1347,10 @@ class Skylink {
     }
   }
 }
-// recursive wire=>data
+
+if (typeof module !== "undefined" && module !== null) {
+  module.exports = Skylink;
+}// recursive wire=>data
 function entryToJS (ent) {
   if (ent == null) {
     return null;
@@ -1603,7 +1626,10 @@ class SkylinkHttpTransport {
     return obj;
   }
 }
-window.ALL_OPS = 'get enumerate subscribe store storeRandom invoke copy unlink putFile loadFile putString loadString'.split(' ');class Skychart {
+
+if (typeof module !== "undefined" && module !== null) {
+  module.exports = SkylinkWsTransport;
+}window.ALL_OPS = 'get enumerate subscribe store storeRandom invoke copy unlink putFile loadFile putString loadString'.split(' ');class Skychart {
   constructor(skylinkP) {
     this.skylinkP = skylinkP;
   }

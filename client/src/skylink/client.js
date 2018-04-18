@@ -288,3 +288,7 @@ class Skylink {
     }
   }
 }
+
+if (typeof module !== "undefined" && module !== null) {
+  module.exports = Skylink;
+}
