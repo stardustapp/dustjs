@@ -166,8 +166,13 @@ class Skylink {
       if (x.Type !== 'File') {
         return Promise.reject(`Expected ${path} to be a File but was ${x.Type}`);
       } else {
-        const encoded = base64js.toByteArray(x.FileData || '');
-        return new TextDecoder('utf-8').decode(encoded);
+        // use native base64 when in nodejs
+        if (typeof Buffer != 'undefined') {
+          return new Buffer(x.FileData || '', 'base64').toString('utf8');
+        } else {
+          const encoded = base64js.toByteArray(x.FileData || '');
+          return new TextDecoder('utf-8').decode(encoded);
+        }
       }
     });
   }
@@ -232,12 +237,22 @@ class Skylink {
   }
 
   static File(name, data) {
-    const encodedData = new TextEncoder('utf-8').encode(data);
-    return {
-      Name: name,
-      Type: 'File',
-      FileData: base64js.fromByteArray(encodedData),
-    };
+    // use native base64 when in nodejs
+    if (typeof Buffer != 'undefined') {
+      return {
+        Name: name,
+        Type: 'File',
+        FileData: new Buffer(data).toString('base64'),
+      };
+    } else {
+      // polyfil + TextEncoder needed to support emoji
+      const encodedData = new TextEncoder('utf-8').encode(data);
+      return {
+        Name: name,
+        Type: 'File',
+        FileData: base64js.fromByteArray(encodedData),
+      };
+    }
   }
 
   static Folder(name, children) {

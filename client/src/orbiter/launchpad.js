@@ -44,7 +44,7 @@ class Launchpad {
       return this.providedSecret;
     }
     const secretKey = `skychart.${this.chartName}.secret`;
-    if (window.localStorage[secretKey]) {
+    if (window.localStorage && window.localStorage[secretKey]) {
       //console.info('Retrieving local secret for', this.chartName);
       return window.localStorage[secretKey];
     }
