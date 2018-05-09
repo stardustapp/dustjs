@@ -6,10 +6,10 @@ class Launchpad {
 
     this.status = 'Idle';
 
-    // Autoconfigure skychart endpoint
-    // Use insecure where real SSL doesn't go: localhost and LAN
-    var protocol = 'wss';
-    if (this.domainName.match(/^(localhost(:\d+)?|[^.]+.(lan|local))$/)) {
+    // Autoconfigure skychart endpoint, defaulting to TLS
+    // Downgrade to insecure where real certs don't go: localhost, LAN, and IPs
+    let protocol = 'wss';
+    if (this.domainName.match(/^(localhost|[^.]+.(?:lan|local)|(?:\d{1,3}\.)+\d{1,3})(?::(\d+))?$/)) {
       protocol = 'ws';
     }
     this.endpoint = `${protocol}://${this.domainName}/~~export/ws`;
