@@ -1102,7 +1102,12 @@ class Skylink {
       secret = Skylink.String('secret', localStorage[secretKey]);
     }
 
-    const endpoint = 'ws' + location.origin.slice(4) + '/~~export/ws';
+    let origin = 'ws' + location.origin.slice(4);
+    if (localStorage.domainName) {
+      origin = 'ws://'+localStorage.domainName;
+    }
+
+    const endpoint = origin + '/~~export/ws';
     const skychart = new Skylink('', endpoint);
     const promise = skychart
       .invoke('/pub/open/invoke', Skylink.String('', chartName), '/tmp/chart')
@@ -1417,7 +1422,8 @@ class SkylinkHttpTransport {
     .then(x => x.json())
     .then(this.checkOk)
     .then(x => x, err => {
-      console.warn('Failed netop:', request);
+      if (typeof process === 'undefined' || process.argv.includes('-v'))
+        console.warn('Failed netop:', request);
       return Promise.reject(err);
     });
   }
@@ -1607,7 +1613,8 @@ class SkylinkHttpTransport {
       }))
       .then(this.transformResp)
       .then(x => x, err => {
-        console.warn('Failed netop:', request);
+        if (typeof process === 'undefined' || process.argv.includes('-v'))
+          console.warn('Failed netop:', request);
         return Promise.reject(err);
       });
   }
