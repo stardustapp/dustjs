@@ -43,7 +43,12 @@ class Skylink {
       secret = Skylink.String('secret', localStorage[secretKey]);
     }
 
-    const endpoint = 'ws' + location.origin.slice(4) + '/~~export/ws';
+    let origin = 'ws' + location.origin.slice(4);
+    if (localStorage.domainName) {
+      origin = 'ws://'+localStorage.domainName;
+    }
+
+    const endpoint = origin + '/~~export/ws';
     const skychart = new Skylink('', endpoint);
     const promise = skychart
       .invoke('/pub/open/invoke', Skylink.String('', chartName), '/tmp/chart')
