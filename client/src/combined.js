@@ -1217,7 +1217,7 @@ class Skylink {
     });
   }
 
-  // File-based API
+  // Unicode File-based API (for prev-gen Golang servers)
 
   putFile(path, data) {
     const nameParts = path.split('/');
@@ -1237,6 +1237,32 @@ class Skylink {
           const encoded = base64js.toByteArray(x.FileData || '');
           return new TextDecoder('utf-8').decode(encoded);
         }
+      }
+    });
+  }
+
+  // Binary safe Blob-based API with MIMEs (for modern dust servers)
+
+  putBlob(path, data, mime=null) {
+    const nameParts = path.split('/');
+    const name = nameParts[nameParts.length - 1];
+    return this.store(path, Skylink.Blob(name, data, mime || data.mime));
+  }
+
+  loadBlob(path) {
+    return this.get(path).then(x => {
+      if (x.Type !== 'Blob') {
+        return Promise.reject(`Expected ${path} to be a Blob but was ${x.Type}`);
+      }
+      // use native base64 when in nodejs
+      if (typeof Buffer != 'undefined') {
+        const buffer = Buffer.from(x.Data || '', 'base64');
+        buffer.mime = x.Mime;
+        return buffer;
+      } else {
+        const bytearr = base64js.toByteArray(x.Data || '');
+        bytearr.mime = x.Mime;
+        return bytearr;
       }
     });
   }
@@ -1319,6 +1345,18 @@ class Skylink {
     }
   }
 
+  static Blob(name, data, mime=null) {
+    // use native base64 when in nodejs
+    if (typeof Buffer != 'undefined' && data && data.constructor === Buffer) {
+      return {
+        Name: name,
+        Type: 'Blob',
+        Data: data.toString('base64'),
+        Mime: mime || data.mime,
+      };
+    }
+  }
+
   static Folder(name, children) {
     return {
       Name: name,
@@ -1370,7 +1408,8 @@ class Skylink {
 
 if (typeof module !== "undefined" && module !== null) {
   module.exports = Skylink;
-}// recursive wire=>data
+}
+// recursive wire=>data
 function entryToJS (ent) {
   if (ent == null) {
     return null;
@@ -1422,7 +1461,7 @@ class SkylinkHttpTransport {
     .then(x => x.json())
     .then(this.checkOk)
     .then(x => x, err => {
-      if (typeof process === 'undefined' || process.argv.includes('-v'))
+      if (typeof process === 'undefined' || !process.argv.includes('-q'))
         console.warn('Failed netop:', request);
       return Promise.reject(err);
     });
@@ -1447,7 +1486,8 @@ class SkylinkHttpTransport {
       return Promise.reject(obj);
     }
   }
-}class SkylinkWsTransport {
+}
+class SkylinkWsTransport {
   constructor(endpoint, stats, oneshot) {
     this.endpoint = endpoint;
     this.stats = stats;
@@ -1613,7 +1653,7 @@ class SkylinkHttpTransport {
       }))
       .then(this.transformResp)
       .then(x => x, err => {
-        if (typeof process === 'undefined' || process.argv.includes('-v'))
+        if (typeof process === 'undefined' || !process.argv.includes('-q'))
           console.warn('Failed netop:', request);
         return Promise.reject(err);
       });
@@ -1651,7 +1691,9 @@ class SkylinkHttpTransport {
 
 if (typeof module !== "undefined" && module !== null) {
   module.exports = SkylinkWsTransport;
-}window.ALL_OPS = 'get enumerate subscribe store storeRandom invoke copy unlink putFile loadFile putString loadString'.split(' ');class Skychart {
+}
+window.ALL_OPS = 'get enumerate subscribe store storeRandom invoke copy unlink putFile loadFile putBlob loadBlob putString loadString'.split(' ');
+class Skychart {
   constructor(skylinkP) {
     this.skylinkP = skylinkP;
   }

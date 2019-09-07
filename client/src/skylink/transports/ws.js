@@ -164,7 +164,7 @@ class SkylinkWsTransport {
       }))
       .then(this.transformResp)
       .then(x => x, err => {
-        if (typeof process === 'undefined' || process.argv.includes('-v'))
+        if (typeof process === 'undefined' || !process.argv.includes('-q'))
           console.warn('Failed netop:', request);
         return Promise.reject(err);
       });

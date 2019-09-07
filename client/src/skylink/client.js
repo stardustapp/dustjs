@@ -158,7 +158,7 @@ class Skylink {
     });
   }
 
-  // File-based API
+  // Unicode File-based API (for prev-gen Golang servers)
 
   putFile(path, data) {
     const nameParts = path.split('/');
@@ -178,6 +178,32 @@ class Skylink {
           const encoded = base64js.toByteArray(x.FileData || '');
           return new TextDecoder('utf-8').decode(encoded);
         }
+      }
+    });
+  }
+
+  // Binary safe Blob-based API with MIMEs (for modern dust servers)
+
+  putBlob(path, data, mime=null) {
+    const nameParts = path.split('/');
+    const name = nameParts[nameParts.length - 1];
+    return this.store(path, Skylink.Blob(name, data, mime || data.mime));
+  }
+
+  loadBlob(path) {
+    return this.get(path).then(x => {
+      if (x.Type !== 'Blob') {
+        return Promise.reject(`Expected ${path} to be a Blob but was ${x.Type}`);
+      }
+      // use native base64 when in nodejs
+      if (typeof Buffer != 'undefined') {
+        const buffer = Buffer.from(x.Data || '', 'base64');
+        buffer.mime = x.Mime;
+        return buffer;
+      } else {
+        const bytearr = base64js.toByteArray(x.Data || '');
+        bytearr.mime = x.Mime;
+        return bytearr;
       }
     });
   }
@@ -256,6 +282,18 @@ class Skylink {
         Name: name,
         Type: 'File',
         FileData: base64js.fromByteArray(encodedData),
+      };
+    }
+  }
+
+  static Blob(name, data, mime=null) {
+    // use native base64 when in nodejs
+    if (typeof Buffer != 'undefined' && data && data.constructor === Buffer) {
+      return {
+        Name: name,
+        Type: 'Blob',
+        Data: data.toString('base64'),
+        Mime: mime || data.mime,
       };
     }
   }

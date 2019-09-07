@@ -31,7 +31,7 @@ class SkylinkHttpTransport {
     .then(x => x.json())
     .then(this.checkOk)
     .then(x => x, err => {
-      if (typeof process === 'undefined' || process.argv.includes('-v'))
+      if (typeof process === 'undefined' || !process.argv.includes('-q'))
         console.warn('Failed netop:', request);
       return Promise.reject(err);
     });
