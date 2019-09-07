@@ -1,4 +1,4 @@
-class Subscription {
+export class Subscription {
   constructor(channel) {
     this.paths = new Map();
     this.status = 'Pending';

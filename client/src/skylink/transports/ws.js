@@ -1,4 +1,4 @@
-class SkylinkWsTransport {
+export class SkylinkWsTransport {
   constructor(endpoint, stats, oneshot) {
     this.endpoint = endpoint;
     this.stats = stats;
@@ -141,7 +141,7 @@ class SkylinkWsTransport {
       chan.handle({Status: 'Error', Output: {Type: 'String', StringValue: ''+error}});
     });
     this.channels = {};
-}
+  }
 
   stop() {
     console.log('Shutting down Websocket transport');
@@ -198,8 +198,4 @@ class SkylinkWsTransport {
 
     return obj;
   }
-}
-
-if (typeof module !== "undefined" && module !== null) {
-  module.exports = SkylinkWsTransport;
 }

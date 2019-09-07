@@ -1,5 +1,5 @@
 // accepts one depth and presents one reactive object once ready
-class FlatSubscription {
+export class FlatSubscription {
   constructor(sub, vm) {
     //console.log('flat sub started');
     this.sub = sub;

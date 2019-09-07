@@ -1,4 +1,4 @@
-class SkylinkHttpTransport {
+export class SkylinkHttpTransport {
   constructor(endpoint) {
     this.endpoint = endpoint;
 

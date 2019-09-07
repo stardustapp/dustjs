@@ -1,4 +1,4 @@
-class Skychart {
+export class Skychart {
   constructor(skylinkP) {
     this.skylinkP = skylinkP;
   }

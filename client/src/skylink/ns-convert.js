@@ -1,5 +1,5 @@
 // recursive wire=>data
-function entryToJS (ent) {
+export function entryToJS (ent) {
   if (ent == null) {
     return null;
   }

@@ -1,6 +1,4 @@
-"use strict";
-
-class Skylink {
+export class Skylink {
   constructor(prefix, endpoint, stats) {
     this.prefix = prefix || '';
     this.stats = stats || {
@@ -345,8 +343,4 @@ class Skylink {
       return this.transport.exec(request);
     }
   }
-}
-
-if (typeof module !== "undefined" && module !== null) {
-  module.exports = Skylink;
 }

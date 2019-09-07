@@ -1,4 +1,4 @@
-class ResumableSub {
+export class ResumableSub {
   constructor(label, initialChannel, channelGetter) {
     this.label = label;
     this.channelGetter = channelGetter;
@@ -141,8 +141,8 @@ class ResumableSub {
   }
 }
 
-window.subs = [];
-class SkylinkMount {
+// export const subs = [];
+export class SkylinkMount {
   constructor({endpoint, path, stats}, updateStatus) {
     this.endpoint = endpoint;
     this.path = path;
@@ -220,8 +220,4 @@ class SkylinkMount {
       throw err;
     });
   }
-}
-
-if (typeof module !== "undefined" && module !== null) {
-  module.exports = SkylinkMount;
 }

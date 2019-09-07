@@ -2,7 +2,7 @@
 // /:id - a document with unique/arbitrary id
 // /:id/:field - string fields of document
 // documents are presented as vanilla objects
-class RecordSubscription {
+export class RecordSubscription {
   constructor(sub, opts) {
     this.sub = sub;
     this.basePath = opts.basePath;

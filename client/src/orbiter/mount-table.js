@@ -1,4 +1,4 @@
-class MountTable {
+export class MountTable {
   constructor(baseUri, setStatus) {
     this.baseUri = baseUri || 'tmp://';
     this.mounts = new Map();
@@ -103,8 +103,4 @@ class MountTable {
     };
     return nextPart();
   }
-}
-
-if (typeof module !== "undefined" && module !== null) {
-  module.exports = MountTable;
 }

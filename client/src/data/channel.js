@@ -1,5 +1,5 @@
 // compare to Rx Observable
-class Channel {
+export class Channel {
   constructor(id) {
     this.id = id;
     this.queue = ['waiting'];

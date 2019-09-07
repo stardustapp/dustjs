@@ -1,4 +1,4 @@
-class Launchpad {
+export class Launchpad {
   constructor(domainName, chartName, appId) {
     this.domainName = domainName;
     this.chartName = chartName;
@@ -119,8 +119,4 @@ class Launchpad {
         }
       });
   }
-}
-
-if (typeof module !== "undefined" && module !== null) {
-  module.exports = Launchpad;
 }

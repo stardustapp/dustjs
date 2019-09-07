@@ -1,4 +1,4 @@
-class Orbiter {
+export class Orbiter {
   constructor() {
     this.metadata = {};
     this.endpoint = '';
@@ -72,8 +72,4 @@ class Orbiter {
       throw err;
     });
   }*/
-}
-
-if (typeof module !== "undefined" && module !== null) {
-  module.exports = Orbiter;
 }

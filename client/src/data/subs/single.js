@@ -1,5 +1,5 @@
 // accepts zero depth and presents the root node
-class SingleSubscription {
+export class SingleSubscription {
   constructor(sub) {
     //console.log('single sub started');
     this.sub = sub;
