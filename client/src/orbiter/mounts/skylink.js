@@ -1,3 +1,6 @@
+import {ALL_OPS} from '../../constants.js';
+import {Skylink} from '../../skylink/client.js';
+
 export class ResumableSub {
   constructor(label, initialChannel, channelGetter) {
     this.label = label;

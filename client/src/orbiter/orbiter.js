@@ -1,3 +1,6 @@
+import {Launchpad} from './launchpad.js';
+import {MountTable} from './mount-table.js';
+
 export class Orbiter {
   constructor() {
     this.metadata = {};
@@ -35,7 +38,7 @@ export class Orbiter {
       })
       .catch(err => {
         this.status = 'Failed: ' + err;
-        var pass = prompt(`${err}\n\nInput a secret:`);
+        var pass = typeof prompt === 'function' && prompt(`${err}\n\nInput a secret:`);
         if (pass) {
           return this.launcher.launch(pass);
         }

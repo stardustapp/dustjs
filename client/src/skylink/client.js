@@ -1,3 +1,6 @@
+import {SkylinkHttpTransport} from './transports/http.js';
+import {SkylinkWsTransport} from './transports/ws.js';
+
 export class Skylink {
   constructor(prefix, endpoint, stats) {
     this.prefix = prefix || '';
@@ -53,7 +56,7 @@ export class Skylink {
       .then(() => skychart.invoke('/tmp/chart/launch/invoke', secret))
       .then(x => {
         if (x.Name === 'error') {
-          var pass = prompt(x.StringValue + `\n\nInput a secret:`);
+          var pass = typeof prompt === 'function' && prompt(x.StringValue + `\n\nInput a secret:`);
           if (pass) {
             return skychart.invoke('/tmp/chart/launch/invoke', Skylink.String('secret', pass));
           }

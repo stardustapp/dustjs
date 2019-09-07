@@ -1,3 +1,6 @@
+import {ALL_OPS} from '../constants.js';
+import {SkylinkMount} from './mounts/skylink.js';
+
 export class MountTable {
   constructor(baseUri, setStatus) {
     this.baseUri = baseUri || 'tmp://';

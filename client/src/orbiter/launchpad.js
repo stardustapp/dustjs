@@ -1,3 +1,5 @@
+import {Skylink} from '../skylink/client.js';
+
 export class Launchpad {
   constructor(domainName, chartName, appId) {
     this.domainName = domainName;
