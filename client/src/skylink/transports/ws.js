@@ -175,7 +175,10 @@ export class SkylinkWsTransport {
     if (!(obj.ok === true || obj.Ok === true || obj.Status === "Ok")) {
       //alert(`Stardust operation failed:\n\n${obj}`);
       this.stats.fails++;
-      return Promise.reject(obj);
+      const err = new Error(`Skylink netop not OK: ${JSON.stringify(obj)}`);
+      for (const key in obj)
+        err[key] = obj[key];
+      return Promise.reject(err);
     }
 
     // detect channel creations and register them
