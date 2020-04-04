@@ -1,0 +1,22 @@
+{
+  "name": "@dustjs/server-koa",
+  "version": "0.1.0",
+  "description": "",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Daniel Lamando",
+  "license": "MIT",
+  "dependencies": {
+    "@dustjs/standard-machine-rt": "^0.1.2",
+    "koa": "^2.11.0",
+    "koa-body": "^4.1.1",
+    "koa-mount": "^4.0.0",
+    "koa-route": "^3.2.0",
+    "koa-websocket": "^6.0.0"
+  },
+  "devDependencies": {
+    "node-fetch": "^2.6.0"
+  }
+}

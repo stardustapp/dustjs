@@ -1,0 +1,34 @@
+# \@dustjs/server-koa
+
+Full-featured Skylink HTTP Service implemented using the [Koa][koa] webserver ecosystem.
+
+The `SkylinkExport` class accepts an `Environment` from `@dustjs/standard-machine-rt`
+and configures a Koa mount which accepts both Skylink communication methods:
+
+* `POST /`: Stateless request/response using HTTP bodies containing JSON.
+* `GET /ws`: Stateful WebSockets allowing clients to utilize temporary state on the server.
+* `GET /ping`: Simple health-check endpoint for consumers to see if they can talk to their server.
+
+The `WebServer` class wraps setting up a Koa instance for use with Skylink.
+You can set up your own Koa server instead for more flexibility,
+but you'll have to explicitly configure and route websockets to your `SkylinkExport`.
+
+[koa]: https://koajs.com/
+
+## Example
+```sh
+npm i --save @dustjs/server-koa
+```
+
+Once you have an `Environment` instance you'd like to serve access to,
+starting a single-purpose server would like like this:
+
+```js
+const {WebServer, SkylinkExport} = require('@dustjs/server-koa');
+
+const web = new WebServer();
+web.mountApp('/~~export', new SkylinkExport(myPublicEnvironment));
+
+// listen() arguments passed directly to https://nodejs.org/api/net.html#net_server_listen
+console.log('Skylink listening on', await web.listen(9236, '0.0.0.0'));
+```
