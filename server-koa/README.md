@@ -2,6 +2,9 @@
 
 Full-featured Skylink HTTP Service implemented using the [Koa][koa] webserver ecosystem.
 
+Note that 'Skylink' is a domain-specific protocol
+used for the forever-in-development Stardust project.
+
 The `SkylinkExport` class accepts an `Environment` from `@dustjs/standard-machine-rt`
 and configures a Koa mount which accepts both Skylink communication methods:
 
@@ -15,7 +18,7 @@ but you'll have to explicitly configure and route websockets to your `SkylinkExp
 
 [koa]: https://koajs.com/
 
-## Example
+## Usage
 ```sh
 npm i --save @dustjs/server-koa
 ```
@@ -32,3 +35,6 @@ web.mountApp('/~~export', new SkylinkExport(myPublicEnvironment));
 // listen() arguments passed directly to https://nodejs.org/api/net.html#net_server_listen
 console.log('Skylink listening on', await web.listen(9236, '0.0.0.0'));
 ```
+
+## Examples
+Check out `examples/echo-server.js` for a more complete example of creating a Skylink service.
