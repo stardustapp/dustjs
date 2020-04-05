@@ -37,4 +37,8 @@ console.log('Skylink listening on', await web.listen(9236, '0.0.0.0'));
 ```
 
 ## Examples
-Check out `examples/echo-server.js` for a more complete example of creating a Skylink service.
+Check out `examples/echo-server.js` for a complete example of
+creating and invoking a simple Skylink service.
+
+For a more complex example, `examples/time-server.js` demonstrates
+creating a reactive (WebSocket-based) endpoint and streaming from it.

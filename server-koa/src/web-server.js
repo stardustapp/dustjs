@@ -7,6 +7,12 @@ const route = require('koa-route');
 // const serve = require('koa-static');
 const websockify = require('koa-websocket');
 
+// used to help self-describe accuracy in local situations (aka tests)
+const rewriteHosts = {
+  '::': '::1',
+  '0.0.0.0': '127.0.0.1',
+};
+
 exports.WebServer = class WebServer {
   constructor() {
     this.koa = websockify(new Koa());
@@ -60,12 +66,12 @@ exports.WebServer = class WebServer {
   }={}) {
     // look up ourself
     const addr = this.http.address();
-    const listenHost = addr.family === 'IPv6'
-      ? `[${addr.address}]` : `${addr}`;
+    const selfIp = rewriteHosts[addr.address] || addr.address;
+    const selfHost = addr.family === 'IPv6' ? `[${selfIp}]` : `${selfIp}`;
 
     return [
       `${scheme}//`,
-      hostname || listenHost,
+      hostname || selfHost,
       `:${addr.port}`,
       path,
     ].join('');

@@ -4,10 +4,11 @@ const koaBody = require('koa-body');
 const websockify = require('koa-websocket');
 
 const {
-  FolderLiteral, StringLiteral, BlobLiteral, InflateSkylinkLiteral,
-  TempDevice, AsyncCache,
-  SKYLINK_CORE_OPS, ChannelExtension, SkylinkServer, InlineChannelCarrier,
-} = require('@dustjs/standard-machine-rt');
+  StringEntry,
+  Environment, TempDevice,
+  SkylinkServer,
+  ChannelExtension, InlineChannelCarrier,
+} = require('@dustjs/skylink');
 
 exports.SkylinkExport = class SkylinkExport {
   constructor(publicEnv) {
@@ -52,7 +53,7 @@ class SkylinkWebsocket {
     this.webSocket = webSocket;
 
     // create a new environment just for this connection
-    this.env = new Environment(); // TODO: why is this on global??
+    this.env = new Environment();
     this.env.bind('/tmp', new TempDevice);
     this.env.bind('/pub', publicEnv);
 
@@ -92,7 +93,7 @@ class SkylinkWebsocket {
     }
   }
   on_close() {
-    this.skylink.handleShutdown(new StringLiteral('reason', 'WebSocket was closed'));
+    this.skylink.handleShutdown(new StringEntry('reason', 'WebSocket was closed'));
     // TODO: shut down session
   }
 

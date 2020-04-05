@@ -1,6 +1,5 @@
 const {WebServer, SkylinkExport} = require('..');
-const {Environment} = require('@dustjs/standard-machine-rt');
-const fetch = require('node-fetch');
+const {Environment, StatelessHttpSkylinkClient} = require('@dustjs/skylink');
 
 (async function() {
 
@@ -20,51 +19,37 @@ const fetch = require('node-fetch');
   console.log('Listening on', await web.listen(9230));
 
   // test ourselves once
+  const exportUrl = web.selfDescribeUri({ path: '/~~export' });
+  // support using in a test suite
+  const isOneShot = process.argv.includes('--one-shot');
   try {
     console.log();
-    const exportUrl = web.selfDescribeUri({
-      path: '/~~export',
-    });
     console.group(`Sending test request to ${exportUrl}`);
 
-    const result = await sendTest(exportUrl, {
-      Type: 'String',
-      StringValue: 'Hello, World',
-    });
-    console.log('Self-test output:', result);
+    const client = new StatelessHttpSkylinkClient(exportUrl);
+    const response = await client.volley({
+      Op: 'invoke',
+      Path: '/echo/invoke',
+      Input: {
+        Type: 'String',
+        StringValue: 'Hello, World',
+      }});
+
+    if (response.Ok !== true) throw new Error(
+      `Self-test response wasn't Ok!`);
+    console.log('Self-test output:', response.Output);
 
   } catch (err) {
-    console.warn(`WARN: Self-test failed:`, err.message)
+    console.warn(`WARN: Self-test failed:`, err.message);
+    if (isOneShot) throw err;
+
   } finally {
     console.groupEnd();
     console.log();
   }
+  if (isOneShot) process.exit(0);
 
 })().catch(err => {
   console.log(err);
   process.exit(10);
-})
-
-// helper to send ourselves payloads
-// we could use the dustjs client, but this is simpler
-// TODO: switch to dustjs once it's refactored and stablized
-async function sendTest(url, input) {
-  const resp = await fetch(url, {
-    method: 'POST',
-    body: JSON.stringify({
-      Op: 'invoke',
-      Path: '/echo/invoke',
-      Input: input,
-    }),
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-    },
-  });
-
-  const json = await resp.json();
-  if (json.Ok !== true) throw new Error(
-    `Self-test response wasn't Ok!`);
-
-  return json.Output;
-}
+});
