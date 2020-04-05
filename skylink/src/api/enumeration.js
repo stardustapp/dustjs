@@ -1,5 +1,4 @@
-const {FolderLiteral, StringLiteral, BlobLiteral, InflateSkylinkLiteral}
-  = require('./api-entries.js');
+const {FolderEntry, StringEntry} = require('./entries/');
 
 class EnumerationWriter {
   constructor(depth) {
@@ -26,8 +25,8 @@ class EnumerationWriter {
     return this;
   }
   ascend() {
-    if (this.names.length === 0)
-      throw new Error(`BUG: EnumerationWriter ascended above its root`);
+    if (this.names.length === 0) throw new Error(
+      `BUG: EnumerationWriter ascended above its root`);
     this.names.pop();
     return this;
   }
@@ -35,8 +34,10 @@ class EnumerationWriter {
   // Transclude an external enumeration at the current visitation point
   // TODO: catch over-walking, and something else i forget
   visitEnumeration(entry) {
-    if (entry.Type !== 'Folder') throw new Error(`This isn't a Folder!`);
-    if (entry.Name !== 'enumeration') throw new Error(`This isn't an enumeration!`);
+    if (entry.Type !== 'Folder') throw new Error(
+      `This isn't a Folder!`);
+    if (entry.Name !== 'enumeration') throw new Error(
+      `This isn't an enumeration!`);
 
     const enumPrefix = this.names.map(encodeURIComponent).join('/');
     for (const literal of entry.Children) {
@@ -48,15 +49,15 @@ class EnumerationWriter {
   }
 
   toOutput() {
-    if (this.names.length > 0)
-      throw new Error(`BUG: EnumerationWriter asked to serialize, but is still descended`);
-    return new FolderLiteral('enumeration', this.entries);
+    if (this.names.length > 0) throw new Error(
+      `BUG: EnumerationWriter asked to serialize, but is still descended`);
+    return new FolderEntry('enumeration', this.entries);
   }
 
   // Converts the completed enumeration output into a NSAPI literal structure
   reconstruct() {
-    if (this.names.length > 0)
-      throw new Error(`BUG: EnumerationWriter asked to reconstruct, but is still descended`);
+    if (this.names.length > 0) throw new Error(
+      `BUG: EnumerationWriter asked to reconstruct, but is still descended`);
 
     const outputStack = new Array;
     for (const entry of this.entries) {
@@ -71,8 +72,8 @@ class EnumerationWriter {
         entry.Name = decodeURIComponent(parts[parts.length-1] || '');
         const parent = outputStack[outputStack.length - 1]
         if (parent) {
-          if (parent.Type !== 'Folder')
-            throw new Error(`enumerate put something inside a non-folder ${parent.Type}`);
+          if (parent.Type !== 'Folder') throw new Error(
+            `enumerate put something inside a non-folder ${parent.Type}`);
           parent.Children.push(entry);
         }
         outputStack.push(entry);
@@ -96,17 +97,17 @@ function EnumerateIntoSubscription(enumHandler, depth, newChannel) {
     for (const entry of enumer.toOutput().Children) {
       const fullName = entry.Name;
       entry.Name = 'entry';
-      c.next(new FolderLiteral('notif', [
-        new StringLiteral('type', 'Added'),
-        new StringLiteral('path', fullName),
+      c.next(new FolderEntry('notif', [
+        new StringEntry('type', 'Added'),
+        new StringEntry('path', fullName),
         entry,
       ]));
     }
-    c.next(new FolderLiteral('notif', [
-      new StringLiteral('type', 'Ready'),
+    c.next(new FolderEntry('notif', [
+      new StringEntry('type', 'Ready'),
     ]));
-    c.error(new StringLiteral('nosub',
-        `This entry does not implement reactive subscriptions`));
+    c.error(new StringEntry('nosub',
+      `This entry does not implement reactive subscriptions`));
   });
 }
 
@@ -115,10 +116,10 @@ class FlatEnumerable {
     this.list = things.slice(0);
   }
   async get() {
-    return new FolderLiteral('enumerable', this.list);
+    return new FolderEntry('enumerable', this.list);
   }
   async enumerate(enumer) {
-    enumer.visit(new FolderLiteral());
+    enumer.visit(new FolderEntry());
     if (!enumer.canDescend()) return;
     for (const child of this.list) {
       enumer.descend(child.Name);
@@ -134,10 +135,8 @@ class FlatEnumerable {
   }
 }
 
-if (typeof module !== 'undefined') {
-  module.exports = {
-    EnumerationWriter,
-    EnumerateIntoSubscription,
-    FlatEnumerable,
-  };
-}
+module.exports = {
+  EnumerationWriter,
+  EnumerateIntoSubscription,
+  FlatEnumerable,
+};

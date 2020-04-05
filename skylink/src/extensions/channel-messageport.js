@@ -1,3 +1,5 @@
+const {Channel} = require('../api/channel.js');
+
 // Attaches a 'Chan' field to responses when they pertain to a channel.
 // A MessagePort is attached which will be used for the channel's packets
 class MessagePortChannelCarrier {
@@ -77,9 +79,7 @@ class MessagePortChannelClient {
   }
 }
 
-if (typeof module !== 'undefined') {
-  module.exports = {
-    MessagePortChannelCarrier,
-    MessagePortChannelClient,
-  };
-}
+module.exports = {
+  MessagePortChannelCarrier,
+  MessagePortChannelClient,
+};

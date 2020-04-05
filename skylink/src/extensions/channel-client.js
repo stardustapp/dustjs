@@ -1,3 +1,5 @@
+const {Channel} = require('../api/channel.js');
+
 // Detects a 'Chan' field on normal responses and reroutes them to Channel objects
 class InlineChannelClient {
   constructor(sendCb) {
@@ -48,8 +50,6 @@ class InlineChannelClient {
   }
 }
 
-if (typeof module !== 'undefined') {
-  module.exports = {
-    InlineChannelClient,
-  };
-}
+module.exports = {
+  InlineChannelClient,
+};

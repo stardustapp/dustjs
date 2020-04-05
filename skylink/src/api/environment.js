@@ -1,7 +1,7 @@
 const util = require('util');
-const {FolderLiteral, StringLiteral, BlobLiteral, InflateSkylinkLiteral}
-  = require('./api-entries.js');
-const {PathFragment} = require('../lib/path-fragment.js');
+
+const {FolderEntry, StringEntry} = require('./entries/');
+const {PathFragment} = require('./path-fragment.js');
 
 // An environment maintains one mount table, similar to a plan9 namespace
 // Generally one Environment is equivilent to one HTTP Origin
@@ -12,7 +12,7 @@ const {PathFragment} = require('../lib/path-fragment.js');
 // - Future bind() calls cascade _down_ the selectPath() tree, but not up.
 // - You can never walk out of any Environment, so this also works for access scoping.
 
-Environment = class Environment {
+class Environment {
   constructor(baseUri='env:') {
     this.baseUri = baseUri;
     this.devices = new Map;
@@ -25,9 +25,9 @@ Environment = class Environment {
       //console.warn('bind() wants a trailing slash for target now')
       //target += '/';
     }
-    if (target.length && !target.startsWith('/')) {
-      throw new Error(`Environment#bind() only accepts absolute mount paths`);
-    }
+    if (target.length && !target.startsWith('/')) throw new Error(
+      `Environment#bind() only accepts absolute mount paths`);
+
     if (device.ready)
       await device.ready;
 
@@ -87,25 +87,24 @@ Environment = class Environment {
               return {
                 invoke: opts.invoke,
               };
-            default:
-              throw new Error(`function devices only have /invoke`);
+            default: throw new Error(
+              `function devices only have /invoke`);
           }
         }};
         break;
       case 'literal':
         mount = { async getEntry(path) {
-          if (path) {
-            throw new Error(`literal devices have no pathing`);
-          }
+          if (path) throw new Error(
+            `literal devices have no pathing`);
           return {
             async get() {
-              return new StringLiteral('literal', opts.string);
+              return new StringEntry('literal', opts.string);
             }
           };
         }};
         break;
-      default:
-        throw new Error(`bad mount type ${type} for ${path}`);
+      default: throw new Error(
+        `bad mount type ${type} for ${path}`);
     }
 
     return this.bind(path, mount);
@@ -142,12 +141,11 @@ Environment = class Environment {
       return new VirtualEnvEntry(this, path);
     }
 
-    if (required && entry == null) {
-      throw new Error(`getEntry(${JSON.stringify(path)}) failed but was marked required`);
-    }
-    if (apiCheck && entry != null && !entry[apiCheck]) {
-      throw new Error(`getEntry(${JSON.stringify(path)}) found a ${entry.constructor.name} which doesn't present desired API ${apiCheck}`);
-    }
+    if (required && entry == null) throw new Error(
+      `getEntry(${JSON.stringify(path)}) failed but was marked required`);
+
+    if (apiCheck && entry != null && !entry[apiCheck]) throw new Error(
+      `getEntry(${JSON.stringify(path)}) found a ${entry.constructor.name} which doesn't present desired API ${apiCheck}`);
 
     return entry;
   }
@@ -184,8 +182,8 @@ class ChildEnvironment extends Environment {
   }
 
   async getEntry(path, required, apiCheck) {
-    if (path.includes('..'))
-      throw new Error(`Directory traversal not impl yet`);
+    if (path.includes('..')) throw new Error(
+      `Directory traversal not impl yet`);
 
     const localEnt = await super.getEntry(path, false, apiCheck);
     if (localEnt != null) return localEnt;
@@ -194,8 +192,8 @@ class ChildEnvironment extends Environment {
       if (parentEnt != null) return parentEnt;
     }
 
-    if (required)
-      throw new Error(`ChildEnvironment getEntry() didn't find anything for requirement ${path} even with ${parentEnvs.length} parent envs`);
+    if (required) throw new Error(
+      `ChildEnvironment getEntry() didn't find anything for requirement ${path} even with ${parentEnvs.length} parent envs`);
   }
 }
 
@@ -234,10 +232,9 @@ class VirtualEnvEntry {
     if (children.length) {
       const nameParts = this.path.split('/');
       const name = this.path ? nameParts[nameParts.length - 1] : 'root';
-      return new FolderLiteral(name, children);
-    } else {
-      throw new Error("BUG: You pathed into a part of an env with no contents");
-    }
+      return new FolderEntry(name, children);
+    } else throw new Error(
+      `BUG: You pathed into a part of an env with no contents`);
   }
 
   async enumerate(enumer) {
@@ -279,17 +276,16 @@ class VirtualEnvEntry {
         enumer.descend(child.name);
         try {
           const rootEntry = await child.entry;
-          if (!rootEntry) {
-            throw new Error(`Root entry was null`);
-          }
+          if (!rootEntry) throw new Error(
+            `Root entry was null`);
 
           if (rootEntry.enumerate) {
             await rootEntry.enumerate(enumer);
           } else if (rootEntry.get) {
             enumer.visit(await rootEntry.get());
-          } else {
-            throw new Error(`Environment found a device that it can't describe`);
-          }
+          } else throw new Error(
+            `Environment found a device that it can't describe`);
+
         } catch (err) {
           console.warn('Enumeration had a failed node @', JSON.stringify(child.name), err);
           enumer.visit({Type: 'Error', StringValue: err.message});
@@ -300,6 +296,8 @@ class VirtualEnvEntry {
   }
 }
 
-if (typeof exports !== 'undefined') {
-  exports.Environment = Environment;
-}
+module.exports = {
+  Environment,
+  ChildEnvironment,
+  VirtualEnvEntry,
+};

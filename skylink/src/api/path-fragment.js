@@ -5,12 +5,12 @@
 
 class PathFragment {
   constructor(isAbsolute, parts=[]) {
-    if (typeof isAbsolute !== 'boolean')
-      throw new Error(`PathFragment takes isAbsolute bool as the first param`);
+    if (typeof isAbsolute !== 'boolean') throw new Error(
+      `PathFragment takes isAbsolute bool as the first param`);
 
     const emptyIdx = parts.indexOf('');
-    if (emptyIdx >= 0 && emptyIdx !== parts.length-1)
-      throw new Error(`Paths cannot include zero-length names`);
+    if (emptyIdx >= 0 && emptyIdx !== parts.length-1) throw new Error(
+      `Paths cannot include zero-length names`);
 
     this.isAbsolute = isAbsolute;
     this.parts = parts.slice(0);
@@ -33,8 +33,8 @@ class PathFragment {
 
   // shorthands for 'other' construction
   static from(thing, isAbsolute=true) {
-    if (thing == null)
-      throw new Error(`BUG: called PathFragment.from(null)`);
+    if (thing == null) throw new Error(
+      `BUG: called PathFragment.from(null)`);
     switch (thing.constructor) {
       case Array:
         return new PathFragment(isAbsolute, thing);
@@ -42,18 +42,18 @@ class PathFragment {
         return PathFragment.parse(thing);
       case PathFragment:
         return thing.clone();
-      default:
-        throw new Error(`BUG: called PathFragment.from() with a ${thing.constructor}, not a path-like thing`);
+      default: throw new Error(
+        `BUG: called PathFragment.from() with a ${thing.constructor}, not a path-like thing`);
     }
   }
 
   static parseUri(uri) {
     // parse whole thing as a URI
-    if (!uri.includes('://'))
-      throw new Error(`that doesn't look like a URI`);
+    if (!uri.includes('://')) throw new Error(
+      `that doesn't look like a URI`);
     const match = uri.match(/^(\w+):\/\/(([a-zA-Z0-9._-]+)(?::(\d+))?)(\/[^?#]*|)(\?[^#]+)?(#.+)?$/);
-    if (!match)
-      throw new Error(`that didn't parse like a URI`);
+    if (!match) throw new Error(
+      `that didn't parse like a URI`);
 
     // label the groups and parse the path
     const [_, scheme, host, hostname, port, path, query, fragment] = match;
@@ -83,20 +83,24 @@ class PathFragment {
   }
 
   pushName(name) {
-    if (name === '') throw new Error(`Paths cannot include zero-length names`);
+    if (name === '') throw new Error(
+      `Paths cannot include zero-length names`);
     this.parts.push(encodeURIComponent(name));
   }
   pushPart(part) {
-    if (part === '') throw new Error(`Paths cannot include zero-length parts`);
+    if (part === '') throw new Error(
+      `Paths cannot include zero-length parts`);
     this.parts.push(part);
   }
 
   lastPart() {
-    if (this.parts.length === 0) throw new Error(`no parts to get last of`);
+    if (this.parts.length === 0) throw new Error(
+      `no parts to get last of`);
     return this.parts[this.parts.length-1];
   }
   lastName() {
-    if (this.parts.length === 0) throw new Error(`no parts to get last of`);
+    if (this.parts.length === 0) throw new Error(
+      `no parts to get last of`);
     return decodeURIComponent(this.parts[this.parts.length-1]);
   }
 
@@ -227,6 +231,6 @@ class PathFragment {
   }
 }
 
-if (typeof module !== 'undefined') {
-  module.exports = { PathFragment };
-}
+module.exports = {
+  PathFragment,
+};

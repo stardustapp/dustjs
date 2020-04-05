@@ -1,12 +1,11 @@
-const {FolderLiteral, StringLiteral, BlobLiteral, InflateSkylinkLiteral}
-  = require('../old/core/api-entries.js');
-const {EnumerationWriter} = require('../old/core/enumeration.js');
+const {FolderEntry, StringEntry} = require('./api/entries/');
+const {EnumerationWriter, EnumerateIntoSubscription} = require('./api/enumeration.js');
 
-SKYLINK_CORE_OPS = new Map;
+const CoreOpsMap = new Map;
 
-SKYLINK_CORE_OPS.set('ping', () => null);
+CoreOpsMap.set('ping', () => null);
 
-SKYLINK_CORE_OPS.set('get', async function get(request) {
+CoreOpsMap.set('get', async function get(request) {
   const {Path} = request;
 
   var entry = await this.env.getEntry(Path);
@@ -22,9 +21,9 @@ SKYLINK_CORE_OPS.set('get', async function get(request) {
   }
 });
 
-SKYLINK_CORE_OPS.set('store', async function store(request) {
+CoreOpsMap.set('store', async function store(request) {
   const {Dest} = request;
-  const Input = request.Input; // InflateSkylinkLiteral(request.Input);
+  const Input = request.Input;
 
   var entry = await this.env.getEntry(Dest);
   if (!entry) {
@@ -36,7 +35,7 @@ SKYLINK_CORE_OPS.set('store', async function store(request) {
   }
 });
 
-SKYLINK_CORE_OPS.set('unlink', async function unlink(request) {
+CoreOpsMap.set('unlink', async function unlink(request) {
   const {Path} = request;
 
   var entry = await this.env.getEntry(Path);
@@ -49,7 +48,7 @@ SKYLINK_CORE_OPS.set('unlink', async function unlink(request) {
   }
 });
 
-SKYLINK_CORE_OPS.set('enumerate', async function enumerate(request) {
+CoreOpsMap.set('enumerate', async function enumerate(request) {
   const {Path, Depth} = request;
 
   var entry = await this.env.getEntry(Path);
@@ -64,7 +63,7 @@ SKYLINK_CORE_OPS.set('enumerate', async function enumerate(request) {
   }
 });
 
-SKYLINK_CORE_OPS.set('subscribe', async function subscribe(request) {
+CoreOpsMap.set('subscribe', async function subscribe(request) {
   const {Path, Depth} = request;
 
   // get the channel constructor, we'll want it
@@ -86,17 +85,17 @@ SKYLINK_CORE_OPS.set('subscribe', async function subscribe(request) {
         const literal = await entry.get();
         if (literal) {
           literal.Name = 'entry';
-          c.next(new FolderLiteral('notif', [
-            new StringLiteral('type', 'Added'),
-            new StringLiteral('path', ''),
+          c.next(new FolderEntry('notif', [
+            new StringEntry('type', 'Added'),
+            new StringEntry('path', ''),
             literal,
           ]));
         }
-        c.next(new FolderLiteral('notif', [
-          new StringLiteral('type', 'Ready'),
+        c.next(new FolderEntry('notif', [
+          new StringEntry('type', 'Ready'),
         ]));
       } finally {
-        c.error(new StringLiteral('nosub',
+        c.error(new StringEntry('nosub',
             `This entry does not implement reactive subscriptions`));
       }
     });
@@ -105,7 +104,7 @@ SKYLINK_CORE_OPS.set('subscribe', async function subscribe(request) {
   }
 });
 
-SKYLINK_CORE_OPS.set('invoke', async function invoke(request) {
+CoreOpsMap.set('invoke', async function invoke(request) {
   const {Path, Dest, Input} = request;
 
   var entry = await this.env.getEntry(Path);
@@ -140,8 +139,6 @@ SKYLINK_CORE_OPS.set('invoke', async function invoke(request) {
   }
 });
 
-if (typeof module !== 'undefined') {
-  module.exports = {
-    SKYLINK_CORE_OPS,
-  };
-}
+module.exports = {
+  CoreOpsMap,
+};

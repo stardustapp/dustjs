@@ -11,8 +11,8 @@ class Channel {
 
   // add a packet to process after all other existing packets process
   handle(packet) {
-    if (!this.alive)
-      throw new Error(`Channel isn't alive`);
+    if (!this.alive) throw new Error(
+      `Channel isn't alive`);
 
     this.queue.push(packet);
     if (this.queue.length == 1 && this.callbacks) {
@@ -135,8 +135,6 @@ class Channel {
   }
 }
 
-if (typeof module !== 'undefined') {
-  module.exports = {
-    Channel,
-  };
-}
+module.exports = {
+  Channel,
+};

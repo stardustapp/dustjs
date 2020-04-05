@@ -1,12 +1,13 @@
-const {Channel} = require('../old/channel.js');
+const {Channel} = require('../api/channel.js');
+const {StringEntry} = require('../api/entries/');
 
 let allOpenChannels = 0;
-const metricsClock = setInterval(() => {
-  //Datadog.Instance.gauge('skylink.server.open_channels', allOpenChannels, {});
-}, 10*1000);
-if (metricsClock.unref) {
-  metricsClock.unref();
-}
+// const metricsClock = setInterval(() => {
+//   Datadog.Instance.gauge('skylink.server.open_channels', allOpenChannels, {});
+// }, 10*1000);
+// if (metricsClock.unref) {
+//   metricsClock.unref();
+// }
 
 // for the server
 class ChannelExtension {
@@ -25,7 +26,7 @@ class ChannelExtension {
 
   handleShutdown() {
     for (const chan of this.channels.values()) {
-      chan.triggerStop(new StringLiteral('reason', 'Skylink is shutting down'));
+      chan.triggerStop(new StringEntry('reason', 'Skylink is shutting down'));
     }
     this.channels.clear();
   }
@@ -72,13 +73,43 @@ class ChannelExtension {
       throw new Error(`Channel at ${request.Path} not found`);
     }
 
-    const input = request.Input || new StringLiteral('reason', 'Client called `stop`');
+    const input = request.Input || new StringEntry('reason', 'Client called `stop`');
     return this.channels.get(chanId).triggerStop(input);
   }
 }
 
-if (typeof module !== 'undefined') {
-  module.exports = {
-    ChannelExtension,
-  };
+// Attaches a 'Chan' field to responses when they pertain to a channel.
+// The client gets packets over the original connection and use 'Chan' to differentiate them.
+class InlineChannelCarrier {
+  constructor(sendCb) {
+    this.sendCb = sendCb;
+  }
+
+  attachTo(skylink) {
+    skylink.outputEncoders.push(this.encodeOutput.bind(this));
+  }
+
+  // If you return falsey, you get skipped
+  encodeOutput(output) {
+    if (output && output.constructor === Channel) {
+      return {
+        Ok: true,
+        Status: 'Ok',
+        Chan: output.id,
+        _after: this.plumbChannel.bind(this, output),
+      };
+    }
+  }
+
+  plumbChannel(channel) {
+    channel.forEachPacket(pkt => {
+      pkt.Chan = channel.id;
+      this.sendCb(pkt);
+    }, () => {/* already handled */});
+  }
 }
+
+module.exports = {
+  ChannelExtension,
+  InlineChannelCarrier,
+};

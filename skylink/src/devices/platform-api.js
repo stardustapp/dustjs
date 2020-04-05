@@ -1,4 +1,11 @@
-PlatformApi = class PlatformApi {
+// TODO: this is its own thing that doesn't really fit the other devices
+// should probably use a builder pattern instead of double-duty
+
+const {FolderEntry, StringEntry} = require('../api/entries/');
+const {FlatEnumerable} = require('../api/enumeration.js');
+const {Environment} = require('../api/environment.js');
+
+class PlatformApi {
   constructor(name) {
     this.name = name;
     this.paths = new Map;
@@ -54,8 +61,8 @@ PlatformApi = class PlatformApi {
         case PlatformApiGetter:
           obj[key] = () => val.impl.call(self);
           break;
-        default:
-          throw new Error(`PlatformApi had path of weird constructor ${val.constructor}`);
+        default: throw new Error(
+          `PlatformApi had path of weird constructor ${val.constructor}`);
       }
     });
   }
@@ -65,7 +72,7 @@ PlatformApi = class PlatformApi {
   }
 }
 
-PlatformApiGetter = class PlatformApiGetter {
+class PlatformApiGetter {
   constructor(self, name, type, impl) {
     this.self = self;
     this.type = PlatformApiType.from(type, name);
@@ -83,7 +90,7 @@ PlatformApiGetter = class PlatformApiGetter {
   }
 }
 
-PlatformApiFunction = class PlatformApiFunction {
+class PlatformApiFunction {
   constructor(self, name, {input, output, impl}) {
     this.self = self;
     this.inputType = PlatformApiType.from(input, 'input');
@@ -102,21 +109,32 @@ PlatformApiFunction = class PlatformApiFunction {
     switch (path) {
       case '':
         return new FlatEnumerable(
-          new StringLiteral('input'),
-          new StringLiteral('output'),
+          new StringEntry('input'),
+          new StringEntry('output'),
           {Type: 'Function', Name: 'invoke'});
       case '/input':
-        return { get: () => new StringLiteral('input', JSON.stringify(this.inputType)) };
+        return { get: () => new StringEntry('input', JSON.stringify(this.inputType)) };
       case '/output':
-        return { get: () => new StringLiteral('output', JSON.stringify(this.outputType)) };
+        return { get: () => new StringEntry('output', JSON.stringify(this.outputType)) };
       case '/invoke':
         return this;
     }
   }
 }
 
+class ExtendableError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = this.constructor.name;
+    if (typeof Error.captureStackTrace === 'function') {
+      Error.captureStackTrace(this, this.constructor);
+    } else {
+      this.stack = (new Error(message)).stack;
+    }
+  }
+}
 
-PlatformTypeError = class PlatformTypeError extends ExtendableError {
+class PlatformTypeError extends ExtendableError {
   constructor(fieldName, expectedType, actualType) {
     super(`API field ${JSON.stringify(fieldName)} is supposed to be type ${expectedType} but was actually ${actualType}`);
     this.fieldName = fieldName;
@@ -125,7 +143,7 @@ PlatformTypeError = class PlatformTypeError extends ExtendableError {
   }
 }
 
-PlatformApiTypeString = class PlatformApiTypeString {
+class PlatformApiTypeString {
   constructor(name, defaultValue=null, ser=String, de=String) {
     this.name = name;
     this.type = 'String';
@@ -136,7 +154,7 @@ PlatformApiTypeString = class PlatformApiTypeString {
   serialize(value) {
     if (value == null)
       value = this.defaultValue;
-    return new StringLiteral(this.name, this.ser(value));
+    return new StringEntry(this.name, this.ser(value));
   }
   deserialize(literal) {
     if (!literal) {
@@ -150,25 +168,25 @@ PlatformApiTypeString = class PlatformApiTypeString {
   }
 }
 
-PlatformApiTypeNull = class PlatformApiTypeNull {
+class PlatformApiTypeNull {
   constructor(name) {
     this.name = name;
     this.type = 'Null';
   }
   serialize(value) {
-    if (value != null)
-      throw new Error(`Null type can't serialize anything other than null`);
+    if (value != null) throw new Error(
+      `Null type can't serialize anything other than null`);
     return null;
   }
   deserialize(literal) {
-    if (literal != null)
-      throw new Error(`Null type can't deserialize anything other than null`);
+    if (literal != null) throw new Error(
+      `Null type can't deserialize anything other than null`);
     return null;
   }
 }
 
 // Never put this on the network, it's a no-op, only for intra-process message passing.
-PlatformApiTypeJs = class PlatformApiTypeJs {
+class PlatformApiTypeJs {
   constructor(name) {
     this.name = name;
     this.type = 'JS';
@@ -181,22 +199,21 @@ PlatformApiTypeJs = class PlatformApiTypeJs {
   }
 }
 
-PlatformApiTypeFolder = class PlatformApiTypeFolder {
+class PlatformApiTypeFolder {
   constructor(name, fields=[]) {
     this.name = name;
     this.type = 'Folder';
     this.fields = fields;
   }
   serialize(value) {
-    return new FolderLiteral(this.name, this.fields
+    return new FolderEntry(this.name, this.fields
         .map(field => field.serialize(value[field.name])))
   }
   deserialize(literal) {
-    if (!literal)
-      throw new Error(
-        `Folder ${
-          JSON.stringify(this.name)
-        } is required`);
+    if (!literal) throw new Error(
+      `Folder ${
+        JSON.stringify(this.name)
+      } is required`);
     if (literal.Type !== 'Folder')
       throw new PlatformTypeError(this.name, 'Folder', literal.Type);
 
@@ -209,19 +226,18 @@ PlatformApiTypeFolder = class PlatformApiTypeFolder {
       // TODO: transform struct keys for casing
       struct[field.name] = field.deserialize(child);
     }
-    if (givenKeys.size !== 0) {
-      throw new Error(
-        `Folder ${
-          JSON.stringify(this.name)
-        } had extra children: ${
-          Array.from(givenKeys).join(', ')
-        }`);
-    }
+    if (givenKeys.size !== 0) throw new Error(
+      `Folder ${
+        JSON.stringify(this.name)
+      } had extra children: ${
+        Array.from(givenKeys).join(', ')
+      }`);
+
     return struct;
   }
 }
 
-PlatformApiType = class PlatformApiType {
+class PlatformApiType {
   static from(source, name) {
     if (source == null)
       return new PlatformApiTypeNull(name);
@@ -261,8 +277,8 @@ PlatformApiType = class PlatformApiType {
           return new PlatformApiTypeFolder(name, fields);
         }
       case PlatformApi:
-        if (sourceIsBareFunc)
-          throw new Error(`PlatformApi must be passed as a created instance`);
+        if (sourceIsBareFunc) throw new Error(
+          `PlatformApi must be passed as a created instance`);
         return givenValue.structType;
 
       case Symbol:
@@ -271,8 +287,23 @@ PlatformApiType = class PlatformApiType {
             return new PlatformApiTypeJs(name);
 
         }
-      default:
-        throw new Error(`Unable to implement type for field ${JSON.stringify(name)}`);
+      default: throw new Error(
+        `Unable to implement type for field ${JSON.stringify(name)}`);
     }
   }
 }
+
+module.exports = {
+  PlatformApi,
+  PlatformApiGetter,
+  PlatformApiFunction,
+
+  ExtendableError,
+  PlatformTypeError,
+
+  PlatformApiTypeString,
+  PlatformApiTypeNull,
+  PlatformApiTypeJs,
+  PlatformApiTypeFolder,
+  PlatformApiType,
+};

@@ -1,0 +1,15 @@
+{
+  "name": "@dustjs/skylink",
+  "version": "0.1.0",
+  "description": "Defines a common implemention of the Skylink protocol for the Stardust project.",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Daniel Lamando",
+  "license": "MIT",
+  "dependencies": {
+    "node-fetch": "^2.6.0",
+    "ws": "^7.2.3"
+  }
+}
