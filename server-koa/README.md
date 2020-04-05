@@ -5,7 +5,7 @@ Full-featured Skylink HTTP Service implemented using the [Koa][koa] webserver ec
 Note that 'Skylink' is a domain-specific protocol
 used for the forever-in-development Stardust project.
 
-The `SkylinkExport` class accepts an `Environment` from `@dustjs/standard-machine-rt`
+The `SkylinkExport` class accepts an `Environment` from `@dustjs/skylink`
 and configures a Koa mount which accepts both Skylink communication methods:
 
 * `POST /`: Stateless request/response using HTTP bodies containing JSON.

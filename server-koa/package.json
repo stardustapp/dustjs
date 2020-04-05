@@ -9,7 +9,7 @@
   "author": "Daniel Lamando",
   "license": "MIT",
   "dependencies": {
-    "@dustjs/skylink": "^0.1.0",
+    "@dustjs/skylink": "^0.1.1",
     "koa": "^2.11.0",
     "koa-body": "^4.1.1",
     "koa-mount": "^4.0.0",
