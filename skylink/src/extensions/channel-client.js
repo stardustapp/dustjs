@@ -1,4 +1,5 @@
 const {Channel} = require('../api/channel.js');
+const {InflateSkylinkLiteral} = require('../api/entries/');
 
 // Detects a 'Chan' field on normal responses and reroutes them to Channel objects
 class InlineChannelClient {
@@ -11,14 +12,32 @@ class InlineChannelClient {
     skylink.outputDecoders.push(this.decodeOutput.bind(this));
     skylink.frameProcessors.push(this.processFrame.bind(this));
     skylink.shutdownHandlers.push(this.handleShutdown.bind(this));
+
+    // used to stop channels
+    Object.defineProperty(this, '_client', {
+      value: skylink,
+    });
   }
 
   // Build Channel objects for output
   decodeOutput(frame) {
     if (frame.Chan && frame.Status === 'Ok') {
+      console.log('skylink client creating channel', frame.Chan);
+
       const chan = new Channel(frame.Chan);
-      this.channels.set(frame.Chan, this.channels);
-      return chan;
+      this.channels.set(frame.Chan, chan);
+
+      return {
+        channel: chan.map(InflateSkylinkLiteral),
+        stop: () => {
+          console.log('skylink Requesting stop of chan', frame.Chan);
+          // TODO?: drop new packets until the stop is ack'd
+          return this._client.volley({
+            Op: 'stop',
+            Path: '/chan/'+frame.Chan,
+          });
+        },
+      };
     }
   }
 
@@ -27,11 +46,11 @@ class InlineChannelClient {
     // Detect and route continuations
     if (frame.Chan && frame.Status !== 'Ok') {
       // find the target
-      const chan = this.channels.get[frame.Chan];
+      const chan = this.channels.get(frame.Chan);
       if (!chan) throw new Error(`Skylink received unroutable channel packet inline`);
 
       // pass the message
-      chan.handle(d);
+      chan.handle(frame);
       if (frame.Status !== 'Next') {
         // clean up terminal channels
         this.channels.delete(frame.Chan);

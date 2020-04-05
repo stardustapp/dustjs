@@ -21,6 +21,9 @@ class Environment {
 
   // introduce a new device at a path
   async bind(target, device) {
+    if (!device.getEntry) throw new Error(
+      `bind() only accepts devices, that is, getEntry() is required`);
+
     if (!target.endsWith('/')) {
       //console.warn('bind() wants a trailing slash for target now')
       //target += '/';

@@ -13,12 +13,15 @@ class SkylinkClient {
   decodeOutput(frame) {
     // let extensions decode custom framing
     for (const decoder of this.outputDecoders) {
-      const result = decoder(output);
-      if (result) return result;
+      const result = decoder(frame);
+      if (result) return {
+        ...frame,
+        Output: result,
+      };
     }
 
     // default to no transform
-    return output;
+    return frame;
   }
 
   handleShutdown(input) {
@@ -40,8 +43,8 @@ class SkylinkClient {
       if (result) return;
     }
 
-    // fallback to impl default
-    this.processFrame(frame);
+    // fallback to just decoding the Output
+    this.processFrame(this.decodeOutput(frame));
   }
 }
 

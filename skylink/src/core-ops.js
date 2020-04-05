@@ -78,7 +78,7 @@ CoreOpsMap.set('subscribe', async function subscribe(request) {
   } else if (entry.subscribe) {
     return await entry.subscribe(Depth, newChan);
   } else if (entry.enumerate) {
-    return await EnumerateIntoSubscription(entry.enumerate, Depth, newChan);
+    return await EnumerateIntoSubscription(entry.enumerate.bind(entry), Depth, newChan);
   } else if (entry.get) {
     return newChan.invoke(async c => {
       try {

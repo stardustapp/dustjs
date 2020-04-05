@@ -1,5 +1,6 @@
 const WebSocket = require('ws');
 const {SkylinkClient} = require('./client.js');
+const {InlineChannelClient} = require('./extensions/channel-client.js');
 
 class WebsocketSkylinkClient extends SkylinkClient {
   constructor(endpoint) {
@@ -9,6 +10,8 @@ class WebsocketSkylinkClient extends SkylinkClient {
     this.waitingReceivers = new Array;
     this.isLive = true;
     this.ready = this.init();
+
+    this.attach(new InlineChannelClient());
   }
 
   async init() {
@@ -69,7 +72,7 @@ class WebsocketSkylinkClient extends SkylinkClient {
       .then(this.transformResp);
   }
 
-  // triggered by volley()
+  // triggered for packets from the server
   processFrame(frame) {
     const receiver = this.waitingReceivers.shift();
     if (receiver) {

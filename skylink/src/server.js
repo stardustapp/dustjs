@@ -1,7 +1,9 @@
+const {CoreOpsMap} = require('./core-ops.js');
+
 class SkylinkServer {
   constructor(env) {
     this.env = env;
-    this.ops = new Map(SKYLINK_CORE_OPS);
+    this.ops = new Map(CoreOpsMap);
 
     // event handlers
     this.outputEncoders = new Array;
