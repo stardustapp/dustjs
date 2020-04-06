@@ -127,8 +127,8 @@ class SkylinkClientEntry {
     return response.Output;
   }
 
-/*
-  async subscribe(depth, newChan) {
+  async subscribe(depth, newChannel) {
+    console.log('starting remote sub to', this.path);
     const response = await this.remote.volley({
       Op: 'subscribe',
       Path: this.path,
@@ -136,14 +136,21 @@ class SkylinkClientEntry {
     });
 
     if (!response.Ok) {
-    const err = new Error(
+      const err = new Error(
         `Remote skylink subscribe() failed: ${(response.Output||{}).StringValue || "Empty"}`);
       err.response = response;
       throw err;
     }
-    return response.Output;
+
+    // console.log('new server chan:', response.Output);
+    const {channel, stop} = response.Output;
+    return newChannel.invoke(async c => {
+      // proxy between remote and local channel
+      channel.forEachPacket(pkt => c.next(pkt),
+        () => console.debug('SkylinkClientDevice channel is no more'));
+      c.onStop(() => stop());
+    });
   }
-*/
 }
 
 module.exports = {
