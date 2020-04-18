@@ -18,9 +18,11 @@ class WebsocketSkylinkClient extends SkylinkClient {
     console.log(`Starting Skylink Websocket to ${this.endpoint}`);
     this.pingTimer = setInterval(() => this.volley({Op: 'ping'}), 30 * 1000);
 
-    this.ws = new WebSocket(this.endpoint);
+    // this.ws = new WebSocket(this.endpoint, ['skylink', 'skylink-inline-channels', 'skylink-reversal']);
+    this.ws = new WebSocket(`${this.endpoint}?extensions=inline-channels,reversal`);
     this.ws.onmessage = msg => {
       const frame = JSON.parse(msg.data);
+      // console.log('client <-- server', frame);
       this.receiveFrame(frame);
     };
 
@@ -63,11 +65,17 @@ class WebsocketSkylinkClient extends SkylinkClient {
     this.handleShutdown(input);
   }
 
+  postMessage(message) {
+    // console.log('client --> server', message);
+    this.ws.send(this.encodeFrame(message));
+    if (message._after) message._after();
+  }
+
   volley(request) {
     return this.ready
       .then(() => new Promise((resolve, reject) => {
         this.waitingReceivers.push({resolve, reject});
-        this.ws.send(JSON.stringify(request));
+        this.postMessage(request);
       }))
       .then(this.transformResp);
   }

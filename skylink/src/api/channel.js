@@ -13,6 +13,8 @@ class Channel {
   handle(packet) {
     if (!this.alive) throw new Error(
       `Channel isn't alive`);
+    if (!packet.Status) throw new Error(
+      `Channel ${this.id} got frame without a Status`);
 
     this.queue.push(packet);
     if (this.queue.length == 1 && this.callbacks) {
@@ -46,6 +48,8 @@ class Channel {
   }
 
   route(packet) {
+    if (!packet.Status) throw new Error(
+      `Channel ${this.id} got frame without a Status`);
     const callback = this.callbacks['on' + packet.Status];
     if (callback) {
       return callback(packet) || Promise.resolve();

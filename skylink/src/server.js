@@ -1,13 +1,18 @@
 const {CoreOpsMap} = require('./core-ops.js');
+const {InflateSkylinkLiteral, DeflateToSkylinkLiteral} = require('./api/entries/');
 
 class SkylinkServer {
-  constructor(env) {
+  constructor(env, postMessage) {
     this.env = env;
+    this.postMessage = postMessage;
     this.ops = new Map(CoreOpsMap);
 
     // event handlers
     this.outputEncoders = new Array;
+    this.frameProcessors = new Array;
     this.shutdownHandlers = new Array;
+    this.extraInflaters = new Map;
+    this.extraDeflaters = new Map;
   }
 
   attach(extension) {
@@ -24,7 +29,7 @@ class SkylinkServer {
     // build a default frame
     return {
       Ok: true,
-      Output: output,
+      Output: DeflateToSkylinkLiteral(output, this.extraDeflaters),
     };
   }
 
@@ -32,6 +37,19 @@ class SkylinkServer {
     for (const handler of this.shutdownHandlers) {
       handler(input);
     }
+  }
+
+  receiveFrame(frame) {
+    // let extensions override the whole frame
+    for (const processor of this.frameProcessors) {
+      const result = processor(frame);
+      if (result) return result;
+    }
+
+    // fallback to servicing request normally
+    return this
+      .processFrame(frame)
+      .then(this.postMessage);
   }
 
   // Called by transports when the client sends an operation
@@ -49,8 +67,13 @@ class SkylinkServer {
       request = newReq;
     }
 
+    // inflate client-sent inputs first, supports 'reversal'
+    const inflatedRequest = { ...request,
+      Input: InflateSkylinkLiteral(request.Input, this.extraInflaters),
+    };
+
     return this
-      .performOperation(request)
+      .performOperation(inflatedRequest)
       // wrap output into a response
       .then(this.encodeOutput.bind(this), err => {
         console.warn('!!! Operation failed with', err);
@@ -79,7 +102,7 @@ class SkylinkServer {
 
   // Returns the 'Output' of an operation if Ok. Doesn't give a packet envelope!
   async performOperation(request) {
-    console.debug('--> inbound operation:', request.Op, request.Path, request.Dest);
+    console.debug('--> inbound operation:', request.Op, request.Path, request.Input, request.Dest);
     if (this.ops.has(request.Op)) {
       return this.ops.get(request.Op).call(this, request);
     } else {

@@ -1,6 +1,6 @@
 {
   "name": "@dustjs/skylink",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Defines a common implemention of the Skylink protocol for the Stardust project.",
   "main": "src/index.js",
   "scripts": {

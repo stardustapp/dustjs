@@ -48,6 +48,8 @@ class ChannelExtension {
     input({
       next(Output) {
         channel.handle({Status: 'Next', Output});
+        if (typeof Output.Type !== 'string') throw new Error(
+          `Server channel ${chanId} got output without a Type`);
         //Datadog.Instance.count('skylink.channel.packets', 1, {status: 'next'});
       },
       error(Output) {
@@ -80,13 +82,19 @@ class ChannelExtension {
 
 // Attaches a 'Chan' field to responses when they pertain to a channel.
 // The client gets packets over the original connection and use 'Chan' to differentiate them.
+// TODO: switch to a 'Channel' Type (e.g. support channels within folders)
 class InlineChannelCarrier {
   constructor(sendCb) {
-    this.sendCb = sendCb;
+    if (sendCb) throw new Error(
+      `TODO: InlineChannelCarrier no longer accepts a sendCb`);
   }
 
   attachTo(skylink) {
+    if (!skylink.postMessage) throw new Error(
+      `Only server clients with direct postMessage access can use inline channels`);
+
     skylink.outputEncoders.push(this.encodeOutput.bind(this));
+    this.sendCb = skylink.postMessage.bind(skylink);
   }
 
   // If you return falsey, you get skipped

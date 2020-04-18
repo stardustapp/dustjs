@@ -22,7 +22,7 @@ class InlineChannelClient {
   // Build Channel objects for output
   decodeOutput(frame) {
     if (frame.Chan && frame.Status === 'Ok') {
-      console.log('skylink client creating channel', frame.Chan);
+      console.log('skylink client received new channel', frame.Chan);
 
       const chan = new Channel(frame.Chan);
       this.channels.set(frame.Chan, chan);
@@ -30,8 +30,7 @@ class InlineChannelClient {
       return {
         channel: chan.map(InflateSkylinkLiteral),
         stop: () => {
-          console.log('skylink Requesting stop of chan', frame.Chan);
-          // TODO?: drop new packets until the stop is ack'd
+          // TODO?: drop new packets until the stop is ack'd ??
           return this._client.volley({
             Op: 'stop',
             Path: '/chan/'+frame.Chan,

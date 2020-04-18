@@ -36,6 +36,11 @@ class SkylinkClientDevice {
 
     } else if (scheme.startsWith('ws')) {
       const skylink = new WebsocketSkylinkClient(endpoint);
+
+      // TODO: works around irc-modem flaw with 'tags'
+      // { Name: 'tags', Type: 'Unknown' }
+      skylink.extraInflaters.set('Unknown', raw => ({Type: 'Unknown', Name: raw.Name}));
+
       const wsDevice = new SkylinkClientDevice(skylink, '/pub'+remotePrefix);
       skylink.shutdownHandlers.push(() => {
         skylink.ready = Promise.reject(new Error(`Skylink WS transport has been disconnected`));
@@ -142,12 +147,10 @@ class SkylinkClientEntry {
       throw err;
     }
 
-    // console.log('new server chan:', response.Output);
     const {channel, stop} = response.Output;
     return newChannel.invoke(async c => {
       // proxy between remote and local channel
-      channel.forEachPacket(pkt => c.next(pkt),
-        () => console.debug('SkylinkClientDevice channel is no more'));
+      channel.forEach(c.next, c.error, c.done);
       c.onStop(() => stop());
     });
   }

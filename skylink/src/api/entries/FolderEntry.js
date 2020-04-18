@@ -26,7 +26,7 @@ class FolderEntry {
   }
 
   inspect() {
-    const childStr = this.Children.map(x => x.inspect()).join(', ');
+    const childStr = this.Children.map(x => x ? (x.inspect ? x.inspect() : `${x.constructor.name} "${x.Name}"`) : `BUG:NULL`).join(', ');
     return `<Folder ${JSON.stringify(this.Name)} [${childStr}]>`;
   }
 }
