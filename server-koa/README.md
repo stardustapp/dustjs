@@ -41,4 +41,9 @@ Check out `examples/echo-server.js` for a complete example of
 creating and invoking a simple Skylink service.
 
 For a more complex example, `examples/time-server.js` demonstrates
-creating a reactive (WebSocket-based) endpoint and streaming from it.
+creating a reactive (WebSocket-based) endpoint and streaming data from it.
+
+Finally, `examples/reversal-server.js` configures a Reversal server which allows
+individual clients to "mount" their own client-side API into the server's API
+for other clients to consume. This is useful for exposing Skylink APIs from web browsers
+and similar limited environments.

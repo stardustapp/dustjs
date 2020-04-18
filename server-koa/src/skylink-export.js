@@ -8,6 +8,7 @@ const {
   Environment, TempDevice,
   SkylinkServer,
   ChannelExtension, InlineChannelCarrier,
+  ReversedSkylinkClient, InlineChannelClient,
 } = require('@dustjs/skylink');
 
 exports.SkylinkExport = class SkylinkExport {
@@ -28,9 +29,8 @@ exports.SkylinkExport = class SkylinkExport {
       if (typeof ctx.request.body.Op !== 'string') ctx.throw(400,
         `"Op" field is required in POST`);
 
-      // const publicEnv = await this.domainEnvCache.get(ctx.state.domain);
       const skylinkServer = new SkylinkServer(this.publicEnv);
-
+      // uses processFrame - doesn't support request-intercepting extensions
       ctx.response.body = await skylinkServer.processFrame(ctx.request.body);
     }));
 
@@ -57,9 +57,12 @@ class SkylinkWebsocket {
     this.env.bind('/tmp', new TempDevice);
     this.env.bind('/pub', publicEnv);
 
-    this.skylink = new SkylinkServer(this.env);
+    this.skylink = new SkylinkServer(this.env, this.postMessage.bind(this));
     this.skylink.attach(new ChannelExtension());
-    this.skylink.attach(new InlineChannelCarrier(this.sendJson.bind(this)));
+    this.skylink.attach(new InlineChannelCarrier());
+    this.skylink.attach(new ReversedSkylinkClient([
+      new InlineChannelClient(),
+    ]));
 
     this.isActive = false;
     this.reqQueue = new Array;
@@ -68,9 +71,10 @@ class SkylinkWebsocket {
     webSocket.on('close', this.on_close.bind(this));
   }
 
-  sendJson(body) {
+  postMessage(body) {
     if (this.webSocket) {
       this.webSocket.send(JSON.stringify(body));
+      // console.log('server --> client', JSON.stringify(body));
       if (body._after) body._after();
     } else {
       console.warn(`TODO: channel's downstream websocket isnt connected anymore`)
@@ -79,11 +83,13 @@ class SkylinkWebsocket {
 
   // These functions are invoked by the websocket processor
   on_message(msg) {
+    // console.log('server <-- client', msg);
     let request;
     try {
       request = JSON.parse(msg);
     } catch (err) {
-      throw new HttpBodyThrowable(400, `Couldn't parse JSON from your websocket frame`);
+      this.skylink.handleShutdown(new StringEntry('reason',
+        `Couldn't parse JSON from your websocket frame`));
     }
     if (this.isActive) {
       this.reqQueue.push(request);
@@ -93,16 +99,16 @@ class SkylinkWebsocket {
     }
   }
   on_close() {
-    this.skylink.handleShutdown(new StringEntry('reason', 'WebSocket was closed'));
+    this.skylink.handleShutdown(new StringEntry('reason',
+      'WebSocket was closed'));
     // TODO: shut down session
   }
 
   async processRequest(request) {
     try {
       // console.log(request);
-      const response = await this.skylink.processFrame(request);
+      await this.skylink.receiveFrame(request);
       // console.log(response);
-      this.sendJson(response);
 
     //const stackSnip = (err.stack || new String(err)).split('\n').slice(0,4).join('\n');
     } catch (err) {
