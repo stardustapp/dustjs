@@ -4,7 +4,7 @@ const koaBody = require('koa-body');
 const websockify = require('koa-websocket');
 
 const {
-  StringEntry,
+  ErrorEntry,
   Environment, TempDevice,
   SkylinkServer,
   ChannelExtension, InlineChannelCarrier,
@@ -64,8 +64,11 @@ class SkylinkWebsocket {
       new InlineChannelClient(),
     ]));
 
-    this.isActive = false;
-    this.reqQueue = new Array;
+    setInterval(() => {
+      if (this.skylink.isActive) {
+        console.log('WARN: WS server is "active" with', this.skylink.reqQueue.length, 'things in queue');
+      }
+    }, 5000);
 
     webSocket.on('message', this.on_message.bind(this));
     webSocket.on('close', this.on_close.bind(this));
@@ -88,38 +91,25 @@ class SkylinkWebsocket {
     try {
       request = JSON.parse(msg);
     } catch (err) {
-      this.skylink.handleShutdown(new StringEntry('reason',
+      this.skylink.handleShutdown(new ErrorEntry('reason',
+        'inbound-json-parse', 'server-koa/skylink-export',
         `Couldn't parse JSON from your websocket frame`));
     }
-    if (this.isActive) {
-      this.reqQueue.push(request);
-    } else {
-      this.isActive = true;
-      this.processRequest(request);
-    }
+
+    // receiveFrame handles queuing and sending the response
+    this.skylink
+      .receiveFrame(request)
+      .catch(err => {
+        console.error('WS ERR:', err);
+        this.skylink.handleShutdown(new ErrorEntry('reason',
+          'unhandled-err', 'server-koa/skylink-export',
+          `An unhandled server ${err.constructor.name} occurred processing your request`));
+      });
   }
   on_close() {
-    this.skylink.handleShutdown(new StringEntry('reason',
+    this.skylink.handleShutdown(new ErrorEntry('reason',
+      'conn-closed', 'server-koa/skylink-export',
       'WebSocket was closed'));
     // TODO: shut down session
-  }
-
-  async processRequest(request) {
-    try {
-      // console.log(request);
-      await this.skylink.receiveFrame(request);
-      // console.log(response);
-
-    //const stackSnip = (err.stack || new String(err)).split('\n').slice(0,4).join('\n');
-    } catch (err) {
-      console.error('WS ERR:', err);
-    } finally {
-      // we're done with the req, move on
-      if (this.reqQueue.length) {
-        this.processRequest(this.reqQueue.shift());
-      } else {
-        this.isActive = false;
-      }
-    }
   }
 }
