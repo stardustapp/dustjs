@@ -8,7 +8,7 @@ class DeviceEntry {
 
     Object.defineProperty(this, '_device', {
       value: device,
-    })
+    });
   }
 
   getEntry(path) {

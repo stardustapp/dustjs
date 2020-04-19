@@ -1,4 +1,4 @@
-const {FolderEntry, StringEntry} = require('./entries/');
+const {FolderEntry, StringEntry, ErrorEntry} = require('./entries/');
 
 class EnumerationWriter {
   constructor(depth) {

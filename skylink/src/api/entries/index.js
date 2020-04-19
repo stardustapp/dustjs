@@ -3,7 +3,11 @@ const entries = {
   ...require('./DeviceEntry.js'),
   ...require('./FolderEntry.js'),
   ...require('./StringEntry.js'),
+  ...require('./ErrorEntry.js'),
 };
+
+// TODO: better browser-ready source of error origin info
+const errorAuthority = require('os').hostname();
 
 function InflateSkylinkLiteral(raw, extraInflaters=null) {
   if (!raw) return null;
@@ -24,6 +28,14 @@ function InflateSkylinkLiteral(raw, extraInflaters=null) {
     case 'Blob':
       return new entries.BlobEntry(raw.Name || '', raw.Data, raw.Mime);
 
+    case 'Error':
+      return new entries.ErrorEntry(raw.Name || '', raw.Code, raw.Authority, raw.StringValue);
+
+    // TODO: proper class (maybe even with a callable?)
+    case 'Function':
+      return raw;
+      // return new entries.FunctionEntry(raw.Name || '');
+
     // case 'JS':
     //   return raw.Data;
 
@@ -34,8 +46,9 @@ function InflateSkylinkLiteral(raw, extraInflaters=null) {
           `BUG: Inflater for ${raw.Type} returned ${translated ? translated.Type : 'nothing'}`);
         return translated;
       }
-      console.log(raw)
-      throw new Error(`skylink literal had unimpl Type ${raw.Type}`);
+
+      console.log('WARN: inflater saw unhandled Type in', raw);
+      return new entries.ErrorEntry(raw.Name || '', 'unimpl-type', 'skylink/inflate@'+errorAuthority, `Skylink literal had unimpl Type ${raw.Type}, cannot deflate`);
   }
 };
 
@@ -65,8 +78,23 @@ function DeflateToSkylinkLiteral(entry, extraDeflaters=null) {
     // case 'Blob':
     //   return new entries.BlobEntry(entry.Name || '', entry.Data, entry.Mime);
 
-    // case 'JS':
-    //   return entry.Data;
+    case 'Error':
+      return {
+        Type: 'Error',
+        Name: entry.Name || '',
+        Code: entry.Code || '',
+        Authority: entry.Authority || '',
+        StringValue: `${entry.StringValue || ''}`,
+      };
+
+    case 'Function':
+      return {
+        Type: 'Function',
+        Name: entry.Name || '',
+      };
+
+      // case 'JS':
+      //   return entry.Data;
 
     default:
       if (extraDeflaters && extraDeflaters.has(entry.Type)) {

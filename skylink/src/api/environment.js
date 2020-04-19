@@ -219,7 +219,7 @@ class VirtualEnvEntry {
       if (path.startsWith(this.path)) {
         const subPath = path.slice(this.path.length + 1);
         if (!subPath.includes('/')) {
-          children.push({Name: subPath});
+          children.push({Name: subPath}); // TODO: add Type from child root
         }
       }
     });
@@ -227,7 +227,7 @@ class VirtualEnvEntry {
       if (prefix.startsWith(this.path)) {
         const subPath = prefix.slice(this.path.length + 1);
         if (!subPath.includes('/')) {
-          children.push({Name: subPath});
+          children.push({Name: subPath, Type: 'Folder'});
         }
       }
     });
@@ -235,7 +235,7 @@ class VirtualEnvEntry {
     if (children.length) {
       const nameParts = this.path.split('/');
       const name = this.path ? nameParts[nameParts.length - 1] : 'root';
-      return new FolderEntry(name, children);
+      return new FolderEntry(name, []); // TODO: include children here
     } else throw new Error(
       `BUG: You pathed into a part of an env with no contents`);
   }
@@ -282,6 +282,8 @@ class VirtualEnvEntry {
           if (!rootEntry) throw new Error(
             `Root entry was null`);
 
+          // TODO: awaiting foreign enumerations can cause deadlocks
+          // consider how we can have timeouts here
           if (rootEntry.enumerate) {
             await rootEntry.enumerate(enumer);
           } else if (rootEntry.get) {

@@ -2,7 +2,7 @@ const {CoreOpsMap} = require('./core-ops.js');
 const {InflateSkylinkLiteral, DeflateToSkylinkLiteral} = require('./api/entries/');
 
 class SkylinkServer {
-  constructor(env, postMessage) {
+  constructor(env, postMessage=null) {
     this.env = env;
     this.postMessage = postMessage;
     this.ops = new Map(CoreOpsMap);
@@ -13,6 +13,10 @@ class SkylinkServer {
     this.shutdownHandlers = new Array;
     this.extraInflaters = new Map;
     this.extraDeflaters = new Map;
+
+    // support for lockstep requests
+    this.isActive = false;
+    this.reqQueue = new Array;
   }
 
   attach(extension) {
@@ -43,13 +47,34 @@ class SkylinkServer {
     // let extensions override the whole frame
     for (const processor of this.frameProcessors) {
       const result = processor(frame);
-      if (result) return result;
+      if (result) return Promise.resolve(result);
     }
 
-    // fallback to servicing request normally
-    return this
-      .processFrame(frame)
-      .then(this.postMessage);
+    // otherwise, put request in queue to process normally
+    if (this.isActive) {
+      return new Promise(resolve => this.reqQueue.push({
+        frame, resolve,
+      })).then(this.postMessage);
+    } else {
+      this.isActive = true;
+      return this.processUsingQueue(frame)
+        .then(this.postMessage);
+    }
+  }
+
+  async processUsingQueue(frame) {
+    try {
+      // process now!
+      return await this.processFrame(frame);
+    } finally {
+      // we're done with the req, move on
+      if (this.reqQueue.length) {
+        const nextInLine = this.reqQueue.shift();
+        nextInLine.resolve(this.processUsingQueue(nextInLine.frame));
+      } else if (this.isActive) {
+        this.isActive = false;
+      }
+    }
   }
 
   // Called by transports when the client sends an operation
