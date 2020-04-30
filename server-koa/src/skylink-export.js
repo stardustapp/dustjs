@@ -2,6 +2,7 @@ const Koa = require('koa');
 const route = require('koa-route');
 const koaBody = require('koa-body');
 const websockify = require('koa-websocket');
+const cors = require('@koa/cors');
 
 const {
   ErrorEntry,
@@ -12,7 +13,9 @@ const {
 } = require('@dustjs/skylink');
 
 exports.SkylinkExport = class SkylinkExport {
-  constructor(publicEnv) {
+  constructor(publicEnv, {
+    allowedOrigins = [],
+  }={}) {
     if (!publicEnv)
       throw new Error(`SkylinkExport requires a publicEnv`);
     this.publicEnv = publicEnv;
@@ -20,6 +23,21 @@ exports.SkylinkExport = class SkylinkExport {
     const websockify = require('koa-websocket');
     this.koa = websockify(new Koa());
     this.koa.use(koaBody());
+
+    if (allowedOrigins.length > 0) {
+      this.koa.use(cors({
+        allowMethods: 'GET,HEAD,POST',
+        credentials: false,
+        origin: (ctx) => {
+          const {origin} = ctx.request.header;
+          if (allowedOrigins.includes(origin)) {
+            return origin;
+          }
+          console.log('Blocking cross-origin request from', origin);
+          return false;
+        },
+      }));
+    }
 
     this.koa.use(route.post('/', async ctx => {
       // console.log('export POST:', ctx.request.body);
