@@ -15,6 +15,9 @@ class PathFragment {
     this.isAbsolute = isAbsolute;
     this.parts = parts.slice(0);
   }
+  get names() {
+    return this.parts.map(decodeURIComponent);
+  }
 
   static parse(string) {
     if (string === '') {
