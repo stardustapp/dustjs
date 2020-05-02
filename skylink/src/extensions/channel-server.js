@@ -1,5 +1,6 @@
 const {Channel} = require('../api/channel.js');
 const {StringEntry} = require('../api/entries/');
+const {FunctionDevice} = require('../devices/function-device.js');
 
 let allOpenChannels = 0;
 // const metricsClock = setInterval(() => {
@@ -19,9 +20,9 @@ class ChannelExtension {
   attachTo(skylink) {
     skylink.shutdownHandlers.push(this.handleShutdown.bind(this));
     skylink.ops.set('stop', this.stopOpImpl.bind(this));
-    skylink.env.mount('/channels/new', 'function', {
+    skylink.env.bind('/channels/new', new FunctionDevice({
       invoke: this.newChannelFunc.bind(this),
-    });
+    }));
   }
 
   handleShutdown() {

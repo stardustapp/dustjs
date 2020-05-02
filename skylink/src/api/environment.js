@@ -1,7 +1,9 @@
 const util = require('util');
 
-const {FolderEntry, StringEntry} = require('./entries/');
+const {FolderEntry} = require('./entries/');
 const {PathFragment} = require('./path-fragment.js');
+const {FunctionDevice} = require('../devices/function-device.js');
+const {LiteralDevice} = require('../devices/literal-device.js');
 
 // An environment maintains one mount table, similar to a plan9 namespace
 // Generally one Environment is equivilent to one HTTP Origin
@@ -70,41 +72,16 @@ class Environment {
     // initialize the device to be mounted
     var mount;
     switch (type) {
-      // case 'idb-treestore':
-      //   mount = new IdbTreestoreMount(opts);
-      //   break;
-      // case 'fs-string-dict':
-      //   mount = new FsStringDictMount(opts);
-      //   break;
-      // case 'tmp':
-      //   mount = new TemporaryMount(opts);
-      //   break;
       case 'bind':
-        // just use the specified (already existing) mount
         mount = opts.source;
         break;
       case 'function':
-        mount = { async getEntry(path) {
-          switch (path) {
-            case '/invoke':
-              return {
-                invoke: opts.invoke,
-              };
-            default: throw new Error(
-              `function devices only have /invoke`);
-          }
-        }};
+        console.error('WARN: replace #mount(.., "function", ..) with #bind(.., new FunctionDevice(..)), old syntax will be removed. Note that options are the same.');
+        mount = new FunctionDevice(opts);
         break;
       case 'literal':
-        mount = { async getEntry(path) {
-          if (path) throw new Error(
-            `literal devices have no pathing`);
-          return {
-            async get() {
-              return new StringEntry('literal', opts.string);
-            }
-          };
-        }};
+        console.error('WARN: replace #mount(.., "literal", ..) with #bind(.., new LiteralDevice(..)), old syntax will be removed. Note that options have changed.');
+        mount = LiteralDevice.ofString(opts.string);
         break;
       default: throw new Error(
         `bad mount type ${type} for ${path}`);
