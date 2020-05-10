@@ -12,11 +12,18 @@ class FirestoreDocument {
     });
 
     this.docPath = docRef.path;
+    if (knownSnap) {
+      this.hasSnap = true;
+    }
   }
 
   async getSnapshot() {
     if (!this._knownSnap) {
-      this._knownSnap = await this._docRef.get();
+      if (!this._snapPromise) {
+        this._snapPromise = this._docRef.get();
+      }
+      this._knownSnap = await this._snapPromise;
+      this.hasSnap = true;
     }
     return this._knownSnap;
   }
@@ -29,14 +36,18 @@ class FirestoreDocument {
   async getField(keyStack) {
     let data = await this.getData();
     for (const key of keyStack) {
-      if (!data || data.constructor !== Object) throw new Error(
-        `Document#getField(${JSON.stringify(keyStack)}) missed`);
+      if (!data || ![Object, Array].includes(data.constructor)) {
+        console.log(`getField${JSON.stringify(keyStack)} missed`);
+        return null;
+      }
       data = data[key];
     }
     return data;
   }
 
   selectField(keyStack) {
+    if (keyStack.constructor !== Array) throw new Error(
+      `selectField() needs an Array`);
     return new FirestoreDocumentLens(this, keyStack);
   }
 }
@@ -47,7 +58,13 @@ class FirestoreDocumentLens {
     this.keyStack = keyStack;
   }
 
+  /*async*/ getData() {
+    return this.rootDoc.getField(this.keyStack);
+  }
+
   selectField(furtherKeys) {
+    if (furtherKeys.constructor !== Array) throw new Error(
+      `selectField() needs an Array`);
     return new FirestoreDocumentLens(this.rootDoc, [
       ...this.keyStack,
       ...furtherKeys]);

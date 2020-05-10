@@ -1,15 +1,4 @@
 const {Environment, PathFragment} = require('@dustjs/skylink');
-const {FirestoreDocument} = require('./document.js');
-
-// function pathToField(path) {
-//   return path.slice(1)
-//     .replace(/-[a-z]/g, s=>s.slice(1).toUpperCase())
-//     .replace(/\//g, '.');
-// }
-//
-// function fieldToTreeName(field) {
-//   return field.replace(/[A-Z]/g, s=>'-'+s.toLowerCase());
-// }
 
 const {FirestoreRegionWalker} = require('./walker.js');
 
@@ -19,6 +8,28 @@ class FirestoreRegionDevice {
     this.region = region;
   }
   getEntry(rawPath) {
+    if (rawPath.length <= 1) {
+      return {
+        enumerate: async enumer => {
+          enumer.visit({Type: 'Folder'});
+          if (!enumer.canDescend()) return;
+          for (const [appId, regions] of this.userSession.appMap) {
+            if (regions.has(this.region)) {
+              enumer.descend(appId);
+              if (enumer.canDescend()) {
+                // throw new Error(`TODO: enumerate into app region`)
+                const subEntry = this.getEntry(`/${encodeURIComponent(appId)}`);
+                await subEntry.enumerate(enumer);
+              } else {
+                enumer.visit({Type: 'Folder'});
+              }
+              enumer.ascend();
+            }
+          }
+        },
+      };
+    }
+
     const path = PathFragment.parse(rawPath);
     const appId = decodeURIComponent(path.parts.shift());
 

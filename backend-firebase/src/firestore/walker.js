@@ -36,6 +36,8 @@ class FirestoreRegionWalker {
     const newStack = this.stack.slice();
     let currFrame = this.current;
     while (path.count() > 0) {
+      if (typeof currFrame.selectPath !== 'function') throw new Error(
+        `BUG: ${currFrame.constructor.name} missing selectPath`);
       const {nextFrame, remainingPath} = currFrame.selectPath(path);
       if (nextFrame) {
         newStack.push(currFrame);
@@ -57,18 +59,30 @@ class FirestoreRegionWalker {
   getEntryApi() {
     const walker = this;
     return {
+
+      async get() {
+        switch (true) {
+
+          case typeof walker.current.getLiteral === 'function':
+            return await walker.current.getLiteral();
+            break;
+
+          default:
+            return {Type: 'Error', StringValue: `TODO: get non-collection node "${walker.current.constructor.name}"`};
+        }
+      },
+
       async enumerate(enumer) {
         switch (true) {
 
           // things that have children
-          case walker.current instanceof frames.CollectionFrame:
-          case walker.current instanceof frames.DocumentFrame:
+          case typeof walker.current.getChildFrames === 'function':
             // console.log('enum', walker.current)
             enumer.visit({Type: 'Folder'});
             if (enumer.canDescend()) {
               for (const subFrame of await walker.current.getChildFrames()) {
                 walker.pushFrame(subFrame);
-                enumer.descend(subFrame.treeName);
+                enumer.descend(subFrame.name);
                 await this.enumerate(enumer);
                 enumer.ascend();
                 walker.popFrame();
@@ -76,8 +90,13 @@ class FirestoreRegionWalker {
             }
             break;
 
+          case typeof walker.current.getLiteral === 'function':
+            const literal = await walker.current.getLiteral();
+            if (literal) enumer.visit(literal);
+            break;
+
           default:
-            enumer.visit({Type: 'Error', StringValue: `TODO: enum non-collection node`})
+            enumer.visit({Type: 'Error', StringValue: `TODO: enum non-collection node "${walker.current.constructor.name}"`})
         }
       },
     };

@@ -6,8 +6,8 @@ export default async function(origin) {
     method: 'POST',
     body: JSON.stringify({
       Op: 'enumerate',
-      Path: '/sessions/vvSYX2vjTX4wVcaZWDnI/mnt/config/irc/networks',
-      Depth: 2,
+      Path: '/sessions/vvSYX2vjTX4wVcaZWDnI/mnt',
+      Depth: 4,
     }),
     headers: {
       'content-type': 'application/json',

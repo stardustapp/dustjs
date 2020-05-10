@@ -2,12 +2,9 @@ import {Elements as DataTree} from '@dustjs/data-tree';
 
 export const config = {
   '/prefs': new DataTree.Document({
-    '/userstyle': new DataTree.CompiledFile('text/css', {
-      '.css': 'text/css',
-      '.scss': 'text/x-scss',
-    }),
+    '/userstyle.css': new DataTree.Blob('text/css', 'utf-8'),
   }),
 };
 
-export const persist = {
-};
+// export const persist = {
+// };

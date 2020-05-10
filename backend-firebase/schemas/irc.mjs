@@ -6,20 +6,17 @@ export const config = {
     '/disable-nicklist': Boolean,
     '/enable-notifs': Boolean,
 
-    '/userstyle': new DataTree.CompiledFile('text/css', {
-      '.css': 'text/css',
-      '.scss': 'text/x-scss',
-    }),
+    '/userstyle.css': new DataTree.Blob('text/css', 'utf-8'),
   }),
 
   '/networks': new DataTree.NamedCollection({
     '/auto-connect': Boolean,
     // TODO: convert to string map
-    // '/channels': [String],
-    '/channels': new DataTree.StringMap({
-      '/auto-join': Boolean,
-      '/key': String,
-    }),
+    '/channels': [String],
+    // '/channels': new DataTree.StringMap({
+    //   '/auto-join': Boolean,
+    //   '/key': String,
+    // }),
     '/full-name': String,
     '/hostname': String,
     '/ident': String,

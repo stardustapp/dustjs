@@ -1,5 +1,5 @@
+export {Blob} from './Blob.mjs';
 export {Collection} from './Collection.mjs';
-export {CompiledFile} from './CompiledFile.mjs';
 export {DatePartitionedLog} from './DatePartitionedLog.mjs';
 export {Document} from './Document.mjs';
 export {List} from './List.mjs';

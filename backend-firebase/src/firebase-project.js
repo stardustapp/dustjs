@@ -104,9 +104,9 @@ class FirebaseProject {
 
     // issue a session for the app
     console.log(`Token`, JSON.stringify(tokenSnap.get('name')),
-      `launching for`, userRecord.displayName,
+      `launching for`, userRecord.displayName||userRecord.email,
       '/', tokenSnap.get('appId'));
-    return await this.createUserSession(userId, tokenSnap, {
+    return await this.createUserSession(userId, tokenSnap.ref, {
       authority: 'AppToken',
       application: tokenSnap.get('appId'),
       tokenId: tokenSnap.id,
@@ -114,26 +114,30 @@ class FirebaseProject {
   }
 
   async redeemUserIdToken(idToken, appId) {
-    const token = await admin.auth().verifyIdToken(idToken);
+    const token = await this.fireApp.auth().verifyIdToken(idToken);
     const userRecord = await this.getUserInfo(token.uid);
+    const userRef =  this.userColl.doc(userRecord.uid);
 
     console.log(`App`, JSON.stringify(appId),
-      `launching for`, userRecord.displayName);
-    return await this.createUserSession(userRecord.id, {
+      `launching for`, userRecord.displayName||userRecord.email);
+    return await this.createUserSession(userRecord.uid, userRef, {
       authority: 'IdToken',
       application: appId,
     });
   }
 
-  async createUserSession(userId, tokenSnap, sessFields) {
+  async createUserSession(userId, bookkeepRef, sessFields) {
     // create randomly-ID'd session document
     const sessionId = await this.sessionMgmt
-      .createSession(userRecord.id, sessFields);
+      .createSession(userId, sessFields);
 
     // update bookkeeping
-    await tokenSnap.ref.update({
+    await bookkeepRef.set({
       launchedAt: new Date,
+    }, {
+      mergeFields: ['launchedAt'],
     });
+
     return sessionId;
   }
 }

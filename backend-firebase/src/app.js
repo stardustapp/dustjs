@@ -98,8 +98,10 @@ Datadog.uidTagCache = new AsyncCache({
   console.log('App listening on', await web.listen(9231, '0.0.0.0'));
 
   // Self-test
-  const appTest = await import('./app_test.mjs');
-  await appTest.default(web.selfDescribeUri());
+  if (process.argv.includes('--test')) {
+    const appTest = await import('./app_test.mjs');
+    await appTest.default(web.selfDescribeUri());
+  }
 
 })().then(() => {/*process.exit(0)*/}, err => {
   console.error();
