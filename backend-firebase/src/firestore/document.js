@@ -50,6 +50,15 @@ class FirestoreDocument {
       `selectField() needs an Array`);
     return new FirestoreDocumentLens(this, keyStack);
   }
+
+  onSnapshot(snapCb, errorCb) {
+    // Datadog.countFireOp('stream', this.docRef, {fire_op: 'onSnapshot', method: 'doc/subscribe'});
+    return this._docRef.onSnapshot(docSnap => {
+      // Datadog.countFireOp('read', this.docRef, {fire_op: 'watched', method: 'doc/subscribe'});
+      const doc = new FirestoreDocument(this._docRef, docSnap);
+      snapCb(doc);
+    }, errorCb);
+  }
 }
 
 class FirestoreDocumentLens {
@@ -68,6 +77,16 @@ class FirestoreDocumentLens {
     return new FirestoreDocumentLens(this.rootDoc, [
       ...this.keyStack,
       ...furtherKeys]);
+  }
+
+  onSnapshot(snapCb, errorCb) {
+    // Datadog.countFireOp('stream', this.docRef, {fire_op: 'onSnapshot', method: 'doc/subscribe'});
+    return this.rootDoc._docRef.onSnapshot(docSnap => {
+      // Datadog.countFireOp('read', this.docRef, {fire_op: 'watched', method: 'doc/subscribe'});
+      const doc = new FirestoreDocument(this._docRef, docSnap);
+      const docLens = new FirestoreDocumentLens(doc, this.keyStack);
+      snapCb(docLens);
+    }, errorCb);
   }
 }
 

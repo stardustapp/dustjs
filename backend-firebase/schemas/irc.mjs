@@ -107,12 +107,12 @@ export const persist = {
       // TODO: /raw used to be a hardlink, so maybe also store a firestore ref
       '/raw': ircPacket,
     }, {
-      firestorePath: 'logs/mentions',
+      firestorePath: 'logs/mentions/log',
     }),
 
     // TODO: graduate into a proper context
     '/server-log': new DataTree.DatePartitionedLog(ircPacket, {
-      firestorePath: 'logs/server',
+      firestorePath: 'logs/server/log',
     }),
 
     '/supported': new DataTree.StringMap(String),

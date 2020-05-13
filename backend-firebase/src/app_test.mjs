@@ -6,8 +6,8 @@ export default async function(origin) {
     method: 'POST',
     body: JSON.stringify({
       Op: 'enumerate',
-      Path: '/sessions/vvSYX2vjTX4wVcaZWDnI/mnt',
-      Depth: 4,
+      Path: '/sessions/jGSFq01PvjgltavvioUS/mnt/persist/irc/networks/freenode',
+      Depth: 2,
     }),
     headers: {
       'content-type': 'application/json',

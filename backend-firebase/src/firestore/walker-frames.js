@@ -1,5 +1,6 @@
 const {FirestoreDocument} = require('./document.js');
 const {parseDateStringOrThrow} = require('./util.js');
+const {PathFragment} = require('@dustjs/skylink');
 
 function pathToField(path) {
   return path.slice(1)
@@ -21,10 +22,23 @@ class BaseFrame {
     this.name = name;
   }
 
-  walkName(name) {
-    console.log('walk to', name, 'from', this);
-    throw new Error(`TODO walkName`)
-    // return new BaseFrame(name);
+  // walkName(name) {
+  //   console.log('walk to', name, 'from', this);
+  //   throw new Error(`TODO walkName`)
+  //   // return new BaseFrame(name);
+  // }
+
+  selectPath(path) {
+    // console.log('selecting path', path, 'from', this);
+    if (path.count() < 1) throw new Error(
+      `BUG: selectPath wants a path`);
+    const nextFrame = this.selectName(path.names[0]);
+    if (nextFrame) {
+      const remainingPath = path.slice(1);
+      return { nextFrame, remainingPath };
+    } else {
+      return null;
+    }
   }
 }
 
@@ -68,7 +82,7 @@ class PrimitiveFrame extends NodeFrame {
 
   async getStringValue() {
     const raw = await this.docLens.getData();
-    if (raw === undefined) return null;
+    if (raw == undefined) return null;
     switch (this.nodeSpec.type) {
 
       case 'String':
@@ -87,7 +101,7 @@ class PrimitiveFrame extends NodeFrame {
       //           return parseFloat(val);
 
       case 'Date':
-        return raw ? raw.toISOString() : null;
+        return raw ? raw.toDate().toISOString() : null;
       //         fromStringValue(val) {
       //           return val ? parseDateStringOrThrow(val) : null;
 
@@ -100,14 +114,23 @@ class PrimitiveFrame extends NodeFrame {
 
 class MapFrame extends NodeFrame {
   constructor(name, nodeSpec, docLens) {
+    if (nodeSpec.inner.family !== 'Primitive') throw new Error(
+      `TODO: MapFrame only supports Primitive entries`);
     super(name, nodeSpec);
     this.docLens = docLens;
   }
   async getChildFrames() {
-    console.log(await this.docLens.getData())
-    throw new Error('TODO')
+    const rawObj = await this.docLens.getData();
+    if (!rawObj) return [];
+    return Object.keys(rawObj).map(key => {
+      const subLens = this.docLens.selectField([key]);
+      return new PrimitiveFrame(key, this.nodeSpec.inner, subLens);
+    });
   }
-  // TODOODODODODOOTODOD
+  selectName(key) {
+    const subLens = this.docLens.selectField([key]);
+    return new PrimitiveFrame(key, this.nodeSpec.inner, subLens);
+  }
 }
 
 class ListFrame extends NodeFrame {
@@ -125,7 +148,14 @@ class ListFrame extends NodeFrame {
       return new PrimitiveFrame(`${idx+1}`, this.nodeSpec.inner, subLens);
     });
   }
-  // TODOODODODODOOTODOD
+  selectName(name) {
+    if (!indexRegex.test(name)) return;
+    const index = parseInt(name) - 1;
+    if (index < 0) return;
+
+    const subLens = this.docLens.selectField([`${index}`]);
+    return new PrimitiveFrame(name, this.nodeSpec.inner, subLens);
+  }
 }
 
 class BlobFrame extends NodeFrame {
@@ -153,60 +183,206 @@ class BlobFrame extends NodeFrame {
   }
 }
 
+const moment = require('moment');
+const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+const indexRegex = /^\d+$/;
+class PartitionedLogFrame extends NodeFrame {
+  constructor(name, nodeSpec, refs) {
+    if (nodeSpec.partitionBy !== 'Date') throw new Error(
+      `TODO: PartitionedLogFrame only supports Date partitions`);
+
+    super(name, nodeSpec);
+    this.refs = refs; // horizon, latest, partitions
+  }
+
+  async getChildFrames() {
+    const horizonStr = await this.refs.horizon.getData();
+    const latestStr = await this.refs.latest.getData();
+    if (!horizonStr || !latestStr) {
+      return []; // TODO: better handling of empty logs?
+    }
+
+    const logHorizon = moment(horizonStr, 'YYYY-MM-DD');
+    const logLatest = moment(latestStr, 'YYYY-MM-DD');
+    const partitionFrames = [];
+    for (let cursor = logHorizon; cursor <= logLatest; cursor.add(1, 'day')) {
+      partitionFrames.push(this.selectPartition(cursor.format('YYYY-MM-DD')));
+    }
+
+    return [
+      new PrimitiveFrame('horizon', {type: 'String'}, this.refs.horizon),
+      new PrimitiveFrame('latest', {type: 'String'}, this.refs.latest),
+      ...partitionFrames,
+    ];
+  }
+
+  selectName(key) {
+    switch (true) {
+      case key === 'horizon' || key === 'latest':
+        return new PrimitiveFrame(key, {type: 'String'}, this.refs[key]);
+      case dateRegex.test(key):
+        return this.selectPartition(key);
+    }
+  }
+
+  selectPartition(dateStr) {
+    const logDocRef = this.refs.partitions.doc(dateStr);
+    const logDocLens = new FirestoreDocument(logDocRef);
+    // TODO: this isn't not nodeSpec.inner - there's no AOF log node yet
+    return new LogPartitionFrame(dateStr, this.nodeSpec, {
+      horizon: logDocLens.selectField([`logHorizon`]),
+      latest: logDocLens.selectField([`logLatest`]),
+      entries: logDocRef.collection('entries'),
+    });
+  }
+}
+
+class LogPartitionFrame extends NodeFrame {
+  constructor(name, nodeSpec, refs) {
+    if (nodeSpec.innerMode !== 'AppendOnly') throw new Error(
+      `LogPartitionFrame only supports AppendOnly logs`);
+
+    super(name, nodeSpec);
+    this.refs = refs; // horizon, latest, entries
+  }
+
+  async getChildFrames() {
+    const logHorizon = await this.refs.horizon.getData();
+    const logLatest = await this.refs.latest.getData();
+    if (logHorizon == null || logLatest == null) {
+      return []; // TODO: better handling of empty logs?
+    }
+
+    const entryFrames = [];
+    for (let cursor = logHorizon; cursor <= logLatest; cursor++) {
+      const entryId = `${cursor}`;
+      const entryLens = new FirestoreDocument(this.refs.entries.doc(entryId));
+      entryFrames.push(new DocumentFrame(entryId, this.nodeSpec.inner, entryLens));
+    }
+
+    return [
+      new PrimitiveFrame('horizon', {type: 'Number'}, this.refs.horizon),
+      new PrimitiveFrame('latest', {type: 'Number'}, this.refs.latest),
+      ...entryFrames,
+    ];
+  }
+
+  selectName(key) {
+    switch (true) {
+      case key === 'horizon' || key === 'latest':
+        return new PrimitiveFrame(key, {type: 'Number'}, this.refs[key]);
+      case indexRegex.test(key):
+        const entryLens = new FirestoreDocument(this.refs.entries.doc(key));
+        return new DocumentFrame(key, this.nodeSpec.inner, entryLens);
+    }
+  }
+}
+
 class DocumentFrame extends NodeFrame {
   constructor(name, nodeSpec, docLens) {
     super(name, nodeSpec);
     this.docLens = docLens;
   }
 
-  async getChildFrames() {
-    // console.log('TODO:', this.nodeSpec.fields, this.docLens);
-
+  getChildFrames() {
     const frames = new Array;
     // const compositeNames = new Map;
     for (const [subPath, subNode] of this.nodeSpec.fields) {
-
-      const fieldStack = pathToFieldStack(subPath);
-      const subLens = this.docLens.selectField(fieldStack);
-      const subName = decodeURIComponent(subPath.slice(1));
-
-      const frameConstr = {
-        Primitive: PrimitiveFrame,
-        Map: MapFrame,
-        List: ListFrame,
-        Blob: BlobFrame,
-      }[subNode.family];
-      if (!frameConstr) throw new Error(
-        `TODO: DocumentFrame with field family ${subNode.family}`);
-
-      frames.push(new frameConstr(subName, subNode, subLens));
+      frames.push(this.makeChildFrame(subPath, subNode));
     }
-
     return frames;
   }
   selectPath(path) {
     for (const [subPath, subNode] of this.nodeSpec.fields) {
-      if (path.equals(subPath)) {
-        const fieldStack = pathToFieldStack(subPath);
-        const subLens = this.docLens.selectField(fieldStack);
-        const subName = decodeURIComponent(subPath.slice(1));
-
-        const frameConstr = {
-          Primitive: PrimitiveFrame,
-          Map: MapFrame,
-          List: ListFrame,
-          Blob: BlobFrame,
-        }[subNode.family];
-        if (!frameConstr) throw new Error(
-          `TODO: DocumentFrame with field family ${subNode.family}`);
-
+      const subPathFrag = PathFragment.parse(subPath);
+      if (path.startsWith(subPathFrag)) {
         return {
-          nextFrame: new frameConstr(subName, subNode, subLens),
-          remainingPath: path.slice(1000),
+          nextFrame: this.makeChildFrame(subPath, subNode),
+          remainingPath: path.slice(subPathFrag.count()),
         };
       }
     }
   }
+
+  makeChildFrame(subPath, subNode) {
+    const fieldStack = pathToFieldStack(subPath);
+    const subName = decodeURIComponent(subPath.slice(1));
+
+    if (subNode.family === 'Collection') {
+      return new CollectionFrame(subName, subNode, this.docLens._docRef.collection(subName));
+    } else if (subNode.family === 'PartitionedLog') {
+      return this.makePartitionedLog(subPath, subNode);
+    }
+
+    const subLens = this.docLens.selectField(fieldStack);
+    const frameConstr = {
+      Primitive: PrimitiveFrame,
+      Map: MapFrame,
+      List: ListFrame,
+      Blob: BlobFrame,
+    }[subNode.family];
+    if (!frameConstr) throw new Error(
+      `TODO: DocumentFrame with field family ${subNode.family}`);
+
+    return new frameConstr(subName, subNode, subLens);
+  }
+
+  makePartitionedLog(subPath, subNode) {
+    const firestorePath = subNode.hints.firestorePath || subPath.slice(1);
+    const logFieldStack = pathToFieldStack('/'+firestorePath);
+
+    let logRootDocLens = this.docLens;
+    let docRef = this.docLens._docRef;
+    while (logFieldStack.length > 2) {
+      const collName = logFieldStack.shift();
+      const docId = logFieldStack.shift();
+      // console.log(collName, docId, firestorePath, logFieldStack)
+      docRef = docRef.collection(collName).doc(docId);
+      logRootDocLens = new FirestoreDocument(docRef);
+    }
+
+    const lastLogField = logFieldStack.pop();
+    if (lastLogField !== 'log') throw new Error(
+      `TODO: logs must be called 'log' (${firestorePath})`);
+
+    const subName = decodeURIComponent(subPath.slice(1));
+    return new PartitionedLogFrame(subName, subNode, {
+      horizon: logRootDocLens.selectField([...logFieldStack, `${lastLogField}Horizon`]),
+      latest: logRootDocLens.selectField([...logFieldStack, `${lastLogField}Latest`]),
+      partitions: docRef.collection('partitions'),
+    });
+  }
+
+  async getLiteral() {
+    const literal = {Name: this.name, Type: 'Folder', Children: []};
+    const children = this.getChildFrames();
+    for (const childFrame of children) {
+      const childLit = await childFrame.getLiteral();
+      if (childLit) {
+        literal.Children.push(childLit);
+      }
+    }
+    console.log(literal);
+    return literal;
+  }
+
+  startSubscription(state, Depth) {
+    return this.docLens.onSnapshot(async docSnap => {
+      const frame = new DocumentFrame(this.name, this.nodeSpec, docSnap);
+      const entry = await frame.getLiteral();
+      if (entry) {
+        state.offerPath('', entry);
+      } else {
+        state.removePath('');
+      }
+      state.markReady();
+    }, error => {
+      console.error('WARN: FirestoreDocEntry#subscribe snap error:',
+          error.code, error.stack || error.message);
+      state.markCrashed(error);
+    });
+  }
+
 }
 
 class CollectionFrame extends NodeFrame {
@@ -216,26 +392,18 @@ class CollectionFrame extends NodeFrame {
   }
 
   async getChildFrames() {
-    // console.log(this.nodeSpec.inner);
     console.log('TODO: getall metrics');
     const result = await this.collRef.get();
     return result.docs.map(docSnap => {
       const document = new FirestoreDocument(docSnap.ref, docSnap);
       return new DocumentFrame(docSnap.id, this.nodeSpec.inner, document);
     });
-    // console.log(result.docs);
-    // return null;
   }
 
-  selectPath(path) {
-    const firstName = decodeURIComponent(path.parts[0]);
-    const document = new FirestoreDocument(this.collRef.doc(firstName));
-    return {
-      nextFrame: new DocumentFrame(firstName, this.nodeSpec.inner, document),
-      remainingPath: path.slice(1),
-    };
+  selectName(name) {
+    const document = new FirestoreDocument(this.collRef.doc(name));
+    return new DocumentFrame(name, this.nodeSpec.inner, document);
   }
-
 }
 
 class RootFrame extends BaseFrame {

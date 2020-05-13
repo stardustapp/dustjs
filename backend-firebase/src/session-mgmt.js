@@ -16,7 +16,7 @@ class SessionMgmt {
       },
     });
 
-    setTimeout(this.cleanupNow, 1000);
+    setTimeout(this.cleanupNow, 10000);
   }
 
   async createSession(uid, metadata={}) {

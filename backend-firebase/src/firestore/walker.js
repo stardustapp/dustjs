@@ -1,4 +1,5 @@
 const frames = require('./walker-frames.js');
+const {PublicationState} = require('./publication-state.js');
 
 class FirestoreRegionWalker {
   constructor(rootOpts) {
@@ -39,6 +40,7 @@ class FirestoreRegionWalker {
       if (typeof currFrame.selectPath !== 'function') throw new Error(
         `BUG: ${currFrame.constructor.name} missing selectPath`);
       const {nextFrame, remainingPath} = currFrame.selectPath(path);
+      // console.log(path, nextFrame, remainingPath);
       if (nextFrame) {
         newStack.push(currFrame);
         currFrame = nextFrame;
@@ -99,6 +101,18 @@ class FirestoreRegionWalker {
             enumer.visit({Type: 'Error', StringValue: `TODO: enum non-collection node "${walker.current.constructor.name}"`})
         }
       },
+
+      subscribe(Depth, newChannel) {
+        if (typeof walker.current.startSubscription === 'function') {
+          return newChannel.invoke(async c => {
+            const state = new PublicationState(c);
+            // TODO: check Depth
+            c.onStop(walker.current.startSubscription(state, Depth));
+          });
+        } else throw new Error(
+          `TODO: sub node "${walker.current.constructor.name}"`);
+      },
+
     };
   }
 }
