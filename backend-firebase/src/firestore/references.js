@@ -1,3 +1,41 @@
+class FirestoreCollection {
+  constructor(collRef) {
+    Object.defineProperties(this, {
+      _collRef: {
+        value: collRef,
+        writable: false,
+      },
+    });
+
+    this.collPath = collRef.path;
+  }
+  selectDocument(id) {
+    return new FirestoreDocument(this._collRef.doc(id));
+  }
+
+  async getAllSnapshots() {
+    console.log('TODO: getall metrics');
+    const result = await this._collRef.get();
+    return result.docs.map(docSnap =>
+      new FirestoreDocument(docSnap.ref, docSnap));
+  }
+
+  onSnapshot(snapCb, errorCb) {
+    // Datadog.countFireOp('stream', this.collRef, {fire_op: 'onSnapshot', method: 'collection/subscribe'});
+    return this._collRef.onSnapshot(querySnap => {
+      // Datadog.countFireOp('read', this.collRef, {fire_op: 'watched', method: 'collection/subscribe'}, querySnap.docChanges().length);
+      snapCb({
+        docChanges() {
+          return querySnap.docChanges().map(change => ({
+            type: change.type,
+            doc: new FirestoreDocument(change.doc.ref, change.doc),
+          }));
+        },
+      });
+    }, errorCb);
+  }
+}
+
 class FirestoreDocument {
   constructor(docRef, knownSnap=null) {
     Object.defineProperties(this, {
@@ -15,6 +53,13 @@ class FirestoreDocument {
     if (knownSnap) {
       this.hasSnap = true;
     }
+  }
+  get id() {
+    // TODO: escaping?
+    return this._docRef.id;
+  }
+  selectCollection(id) {
+    return new FirestoreCollection(this._docRef.collection(id));
   }
 
   async getSnapshot() {
@@ -91,5 +136,6 @@ class FirestoreDocumentLens {
   }
 }
 
+exports.FirestoreCollection = FirestoreCollection;
 exports.FirestoreDocument = FirestoreDocument;
 exports.FirestoreDocumentLens = FirestoreDocumentLens;
