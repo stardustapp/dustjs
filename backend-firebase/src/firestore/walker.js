@@ -32,7 +32,7 @@ class FirestoreRegionWalker {
   }
 
   walkPath(path) {
-    console.log('walking', path);
+    // console.log('walking', path);
 
     const newStack = this.stack.slice();
     let currFrame = this.current;

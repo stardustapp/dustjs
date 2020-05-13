@@ -79,11 +79,12 @@ class FirestoreDocumentLens {
       ...furtherKeys]);
   }
 
+  // TODO: share snapshot stream w/ root document
   onSnapshot(snapCb, errorCb) {
     // Datadog.countFireOp('stream', this.docRef, {fire_op: 'onSnapshot', method: 'doc/subscribe'});
     return this.rootDoc._docRef.onSnapshot(docSnap => {
       // Datadog.countFireOp('read', this.docRef, {fire_op: 'watched', method: 'doc/subscribe'});
-      const doc = new FirestoreDocument(this._docRef, docSnap);
+      const doc = new FirestoreDocument(docSnap.ref, docSnap);
       const docLens = new FirestoreDocumentLens(doc, this.keyStack);
       snapCb(docLens);
     }, errorCb);

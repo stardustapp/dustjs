@@ -76,7 +76,7 @@ class PrimitiveFrame extends NodeFrame {
     if (stringVal === null) {
       return null;
     } else {
-      return { Type: 'String', StringValue: stringVal };
+      return { Name: this.name, Type: 'String', StringValue: stringVal };
     }
   }
 
@@ -148,6 +148,17 @@ class ListFrame extends NodeFrame {
       return new PrimitiveFrame(`${idx+1}`, this.nodeSpec.inner, subLens);
     });
   }
+  async getLiteral() {
+    const childFrames = await this.getChildFrames();
+    return {
+      Name: this.name,
+      Type: 'Folder',
+      Children: await Promise
+        .all(childFrames
+          .map(x => x
+            .getLiteral())),
+    };
+  }
   selectName(name) {
     if (!indexRegex.test(name)) return;
     const index = parseInt(name) - 1;
@@ -155,6 +166,22 @@ class ListFrame extends NodeFrame {
 
     const subLens = this.docLens.selectField([`${index}`]);
     return new PrimitiveFrame(name, this.nodeSpec.inner, subLens);
+  }
+  startSubscription(state, Depth) {
+    return this.docLens.onSnapshot(async docSnap => {
+      const frame = new ListFrame(this.name, this.nodeSpec, docSnap);
+      const entry = await frame.getLiteral();
+      if (entry) {
+        state.offerPath('', entry);
+      } else {
+        state.removePath('');
+      }
+      state.markReady();
+    }, error => {
+      console.error('WARN: ListFrame#startSubscription snap error:',
+          error.code, error.stack || error.message);
+      state.markCrashed(error);
+    });
   }
 }
 
@@ -176,6 +203,7 @@ class BlobFrame extends NodeFrame {
       `BUG: Blob from store was type ${data.constructor.name}`);
 
     return {
+      Name: this.name,
       Type: 'Blob',
       MimeType: this.nodeSpec.mimeType,
       Data: data.toString('base64'),
@@ -357,12 +385,17 @@ class DocumentFrame extends NodeFrame {
     const literal = {Name: this.name, Type: 'Folder', Children: []};
     const children = this.getChildFrames();
     for (const childFrame of children) {
-      const childLit = await childFrame.getLiteral();
-      if (childLit) {
-        literal.Children.push(childLit);
+      if (typeof childFrame.getLiteral === 'function') {
+        const childLit = await childFrame.getLiteral();
+        if (childLit) {
+          literal.Children.push(childLit);
+        }
+      } else {
+        console.log("Missing getLiteral() on", childFrame.constructor.name, "for", childFrame.name);
+        literal.Children.push({Name: childFrame.name, Type: "Error", StringValue: "No getLiteral() implementation"});
       }
     }
-    console.log(literal);
+    // console.log(literal);
     return literal;
   }
 
@@ -377,7 +410,7 @@ class DocumentFrame extends NodeFrame {
       }
       state.markReady();
     }, error => {
-      console.error('WARN: FirestoreDocEntry#subscribe snap error:',
+      console.error('WARN: DocumentFrame#startSubscription snap error:',
           error.code, error.stack || error.message);
       state.markCrashed(error);
     });
@@ -389,6 +422,10 @@ class CollectionFrame extends NodeFrame {
   constructor(name, nodeSpec, collRef) {
     super(name, nodeSpec);
     this.collRef = collRef;
+  }
+
+  getLiteral() {
+    return { Name: this.name, Type: 'Folder' };
   }
 
   async getChildFrames() {
@@ -403,6 +440,41 @@ class CollectionFrame extends NodeFrame {
   selectName(name) {
     const document = new FirestoreDocument(this.collRef.doc(name));
     return new DocumentFrame(name, this.nodeSpec.inner, document);
+  }
+
+  startSubscription(state, Depth) {
+    // Datadog.countFireOp('stream', this.collRef, {fire_op: 'onSnapshot', method: 'collection/subscribe'});
+    return this.collRef.onSnapshot(async querySnap => {
+      state.offerPath('', {Type: 'Folder'});
+
+      // console.log('onSnapshot', querySnap.docChanges());
+      // Datadog.countFireOp('read', this.collRef, {fire_op: 'watched', method: 'collection/subscribe'}, querySnap.docChanges().length);
+      for (const docChange of querySnap.docChanges()) {
+        switch (docChange.type) {
+          case 'added':
+          case 'modified':
+            if (Depth > 1) {
+              const frame = new DocumentFrame(docChange.doc.id, this.nodeSpec.inner, new FirestoreDocument(docChange.doc.ref, docChange.doc));
+              const docLiteral = await frame.getLiteral();
+              // console.log('doc literal', docLiteral);
+              state.offerPath(docChange.doc.id, docLiteral);
+            } else {
+              state.offerPath(docChange.doc.id, {Type: 'Folder'});
+            }
+            break;
+          case 'removed':
+            state.removePath(docChange.doc.id);
+            break;
+          default:
+            throw new Error(`weird docChange.type ${docChange.type}`);
+        }
+      }
+      state.markReady();
+    }, error => {
+      console.error('WARN: CollectionFrame#startSubscription snap error:',
+          error.code, error.stack || error.message);
+      state.markCrashed(error);
+    });
   }
 }
 
