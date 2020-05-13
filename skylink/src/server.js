@@ -127,7 +127,11 @@ class SkylinkServer {
 
   // Returns the 'Output' of an operation if Ok. Doesn't give a packet envelope!
   async performOperation(request) {
-    console.debug('--> inbound operation:', request.Op, request.Path, request.Input, request.Dest);
+    console.debug('--> inbound operation:', request.Op,
+      request.Path || '(no path)',
+      request.Input ? request.Input.Type : '(no input)',
+      request.Dest || '(no dest)');
+
     if (this.ops.has(request.Op)) {
       return this.ops.get(request.Op).call(this, request);
     } else {
