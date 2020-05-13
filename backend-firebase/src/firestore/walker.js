@@ -63,15 +63,19 @@ class FirestoreRegionWalker {
     return {
 
       async get() {
-        switch (true) {
+        if (typeof walker.current.getLiteral === 'function') {
+          return await walker.current.getLiteral();
+        } else return {
+          Type: 'Error',
+          StringValue: `TODO: get node "${walker.current.constructor.name}"`,
+        };
+      },
 
-          case typeof walker.current.getLiteral === 'function':
-            return await walker.current.getLiteral();
-            break;
-
-          default:
-            return {Type: 'Error', StringValue: `TODO: get non-collection node "${walker.current.constructor.name}"`};
-        }
+      async put(input) {
+        if (typeof walker.current.putLiteral === 'function') {
+          return await walker.current.putLiteral(input);
+        } else throw new Error(
+          `TODO: put node "${walker.current.constructor.name}"`);
       },
 
       async enumerate(enumer) {

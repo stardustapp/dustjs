@@ -116,12 +116,28 @@ class FirestoreDocumentLens {
     return this.rootDoc.getField(this.keyStack);
   }
 
+
   selectField(furtherKeys) {
     if (furtherKeys.constructor !== Array) throw new Error(
       `selectField() needs an Array`);
     return new FirestoreDocumentLens(this.rootDoc, [
       ...this.keyStack,
       ...furtherKeys]);
+  }
+
+  clearData() {
+    return this.setData(null);
+  }
+  setData(raw) {
+    const doc = {};
+    let top = doc;
+    for (const name of this.keyStack.slice(0, -1)) {
+      top = top[name] = {};
+    }
+    top[this.keyStack.slice(-1)[0]] = raw;
+    return this.rootDoc._docRef.set(doc, {
+      mergeFields: [this.keyStack.join('.')],
+    });
   }
 
   // TODO: share snapshot stream w/ root document

@@ -80,34 +80,62 @@ class PrimitiveFrame extends NodeFrame {
     }
   }
 
+  async putLiteral(input) {
+    // const doc = {};
+
+    // support deletion
+    if (!input) {
+      // doc[this.fieldPath] = null;
+      console.log('clearing fields', doc, 'on', this.docLens);
+      // Datadog.countFireOp('write', this.docLens, {fire_op: 'merge', method: 'field/put'});
+      await this.docLens.clearData();
+      // await this.docLens.set(doc, {
+      //   mergeFields: [this.fieldPath],
+      // });
+      return;
+    }
+
+    if (input.Type !== 'String') throw new Error(
+      `Primitive fields must be put as String entries`);
+
+    const newValue = this.fromStringValue(input.StringValue || '');
+    console.log('setting data', newValue, 'on', this.docLens);
+    // Datadog.countFireOp('write', this.docLens, {fire_op: 'merge', method: 'field/put'});
+    await this.docLens.setData(newValue);;
+  }
+
   async getStringValue() {
     const raw = await this.docLens.getData();
-    if (raw == undefined) return null;
+    if (raw == null) return null;
     switch (this.nodeSpec.type) {
-
       case 'String':
         return `${raw}`;
-      //         fromStringValue(val) {
-      //           return val || '';
-
       case 'Boolean':
         return raw ? 'yes' : 'no';
-      //         fromStringValue(val) {
-      //           return val === 'yes';
-
       case 'Number':
         return `${raw || 0}`;
-      //         fromStringValue(val) {
-      //           return parseFloat(val);
-
       case 'Date':
         return raw ? raw.toDate().toISOString() : null;
-      //         fromStringValue(val) {
-      //           return val ? parseDateStringOrThrow(val) : null;
-
       default:
         console.log('i have data', raw, this.nodeSpec);
-        throw new Error(`TODO: unmapped DataTree field`);
+        throw new Error(`TODO: unmapped DataTree field for ${this.name}`);
+    }
+  }
+
+  fromStringValue(val) {
+    if (val == null) return null;
+    switch (this.nodeSpec.type) {
+      case 'String':
+        return val || '';
+      case 'Boolean':
+        return val === 'yes';
+      case 'Number':
+        return parseFloat(val);
+      case 'Date':
+        return parseDateStringOrThrow(val);
+      default:
+        console.log('i have data', val, this.nodeSpec);
+        throw new Error(`TODO: unmapped DataTree field for ${this.name}`);
     }
   }
 }
