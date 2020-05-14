@@ -107,9 +107,10 @@ class FirestoreDocument {
 }
 
 class FirestoreDocumentLens {
-  constructor(rootDoc, keyStack) {
+  constructor(rootDoc, keyStack, flags={}) {
     this.rootDoc = rootDoc;
     this.keyStack = keyStack;
+    this.flags = flags;
   }
 
   /*async*/ getData() {
@@ -117,18 +118,25 @@ class FirestoreDocumentLens {
   }
 
 
-  selectField(furtherKeys) {
+  selectField(furtherKeys, flags={}) {
     if (furtherKeys.constructor !== Array) throw new Error(
       `selectField() needs an Array`);
     return new FirestoreDocumentLens(this.rootDoc, [
       ...this.keyStack,
-      ...furtherKeys]);
+      ...furtherKeys,
+    ], {
+      ...this.flags,
+      ...flags,
+    });
   }
 
   clearData() {
     return this.setData(null);
   }
   setData(raw) {
+    if (this.flags.readOnly) throw new Error(
+      `This field is readonly`);
+
     const doc = {};
     let top = doc;
     for (const name of this.keyStack.slice(0, -1)) {

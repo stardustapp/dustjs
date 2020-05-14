@@ -98,7 +98,7 @@ class FirebaseProject {
       `Cannot create a session: User is disabled`);
     if (userRecord.tokensValidAfterTime) {
       const validSince = new Date(userRecord.tokensValidAfterTime);
-      if (validSince >= tokenSnap.get('issuedAt')) throw new Error(
+      if (validSince >= tokenSnap.get('issuedAt').toDate()) throw new Error(
         `Cannot create a session: User's tokens are revoked`);
     }
 

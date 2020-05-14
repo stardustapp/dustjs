@@ -138,6 +138,23 @@ class PrimitiveFrame extends NodeFrame {
         throw new Error(`TODO: unmapped DataTree field for ${this.name}`);
     }
   }
+
+  startSubscription(state, Depth) {
+    return this.docLens.onSnapshot(async docSnap => {
+      const frame = new PrimitiveFrame(this.name, this.nodeSpec, docSnap);
+      const entry = await frame.getLiteral();
+      if (entry) {
+        state.offerPath('', entry);
+      } else {
+        state.removePath('');
+      }
+      state.markReady();
+    }, error => {
+      console.error('WARN: PrimitiveFrame#startSubscription snap error:',
+          error.code, error.stack || error.message);
+      state.markCrashed(error);
+    });
+  }
 }
 
 class MapFrame extends NodeFrame {
@@ -154,6 +171,17 @@ class MapFrame extends NodeFrame {
       const subLens = this.docLens.selectField([key]);
       return new PrimitiveFrame(key, this.nodeSpec.inner, subLens);
     });
+  }
+  async getLiteral() {
+    const childFrames = await this.getChildFrames();
+    return {
+      Name: this.name,
+      Type: 'Folder',
+      Children: await Promise
+        .all(childFrames
+          .map(x => x
+            .getLiteral())),
+    };
   }
   selectName(key) {
     const subLens = this.docLens.selectField([key]);
@@ -173,7 +201,7 @@ class ListFrame extends NodeFrame {
     const data = await this.docLens.getData();
     if (!data) return [];
     return data.map((val, idx) => {
-      const subLens = this.docLens.selectField([`${idx}`]);
+      const subLens = this.docLens.selectField([`${idx}`], {readOnly: true});
       return new PrimitiveFrame(`${idx+1}`, this.nodeSpec.inner, subLens);
     });
   }
@@ -193,7 +221,7 @@ class ListFrame extends NodeFrame {
     const index = parseInt(name) - 1;
     if (index < 0) return;
 
-    const subLens = this.docLens.selectField([`${index}`]);
+    const subLens = this.docLens.selectField([`${index}`], {readOnly: true});
     return new PrimitiveFrame(name, this.nodeSpec.inner, subLens);
   }
   startSubscription(state, Depth) {
