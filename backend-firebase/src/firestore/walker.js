@@ -1,4 +1,4 @@
-const frames = require('./walker-frames.js');
+const frames = require('./frames/');
 const {PublicationState} = require('./publication-state.js');
 
 class FirestoreRegionWalker {
