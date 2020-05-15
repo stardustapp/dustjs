@@ -4,7 +4,7 @@ const isoStringPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)Z$/;
 function parseDateStringOrThrow(dateString) {
   if (!isoStringPattern.test(dateString)) {
     if (/^\d{10}$/.test(dateString)) {
-      return new Date(parseInt(dateString));
+      return new Date(parseInt(dateString)*1000);
     }
     throw new Error(
       `date field given non-ISO string "${dateString}", refusing`);
