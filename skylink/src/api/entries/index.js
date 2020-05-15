@@ -74,9 +74,13 @@ function DeflateToSkylinkLiteral(entry, extraDeflaters=null) {
           DeflateToSkylinkLiteral(child, extraDeflaters)),
       };
 
-    // TODO:
-    // case 'Blob':
-    //   return new entries.BlobEntry(entry.Name || '', entry.Data, entry.Mime);
+    case 'Blob':
+      return {
+        Type: 'Blob',
+        Name: entry.Name || '',
+        Mime: entry.Mime || '',
+        Data: entry.Data || '',
+      };
 
     case 'Error':
       return {
