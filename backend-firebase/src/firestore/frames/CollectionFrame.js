@@ -21,6 +21,29 @@ class CollectionFrame extends require('./BaseFrame.js') {
     return constructFrame(name, this.nodeSpec.inner, document);
   }
 
+  putLiteral(input) {
+    // if (!input) {
+    //   this.docLens.clearData();
+    //   return;
+    // }
+    // if (input.Type !== 'Folder') throw new Error(
+    //   `Documents must be stored as Folder entries`);
+
+    if (input && input.Type !== 'Folder') throw new Error(
+      `Collections must be put as Folder entries`);
+
+    // first: delete everything
+    this.collLens.deleteAll();
+    if (!input) return;
+
+    // second: write everything
+    for (const entry of input.Children) {
+      const frame = this.selectName(entry.Name);
+      frame.putLiteral(entry);
+    }
+    console.log('wrote', input.Children.length, 'entries into', this.collLens);
+  }
+
   startSubscription(state, Depth) {
     return this.collLens.onSnapshot(async querySnap => {
       state.offerPath('', {Type: 'Folder'});

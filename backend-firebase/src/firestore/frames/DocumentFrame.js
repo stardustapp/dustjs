@@ -95,6 +95,27 @@ class DocumentFrame extends require('./BaseFrame.js') {
     return literal;
   }
 
+  putLiteral(input) {
+    if (!input) {
+      this.docLens.clearData();
+      return;
+    }
+    if (input.Type !== 'Folder') throw new Error(
+      `Documents must be stored as Folder entries`);
+
+    // root-puts act as a full replacement
+    this.docLens.clearData();
+    const children = new Map(input.Children.map(x => [x.Name, x]));
+    for (const frame of this.getChildFrames()) {
+      if (children.has(frame.name)) {
+        if (typeof frame.putLiteral === 'function') {
+          frame.putLiteral(children.get(frame.name));
+        } else throw new Error(
+          `TODO: ${frame.constructor.name} lacks putLiteral()`);
+      }
+    }
+  }
+
   startSubscription(state, Depth) {
     return this.docLens.onSnapshot(async docSnap => {
       const frame = new DocumentFrame(this.name, this.nodeSpec, docSnap);

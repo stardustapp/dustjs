@@ -1,9 +1,14 @@
 const frames = require('./frames/');
 const {PublicationState} = require('./publication-state.js');
+const {ReferenceTracker} = require('./references.js');
 
 class FirestoreRegionWalker {
   constructor(rootOpts) {
-    const rootFrame = new frames.RootFrame(rootOpts);
+    this.tracker = new ReferenceTracker();
+    const rootFrame = new frames.RootFrame({
+      ...rootOpts,
+      tracker: this.tracker,
+    });
 
     // this.appId = appId;
     // this.regionId = regionId;
@@ -73,7 +78,8 @@ class FirestoreRegionWalker {
 
       async put(input) {
         if (typeof walker.current.putLiteral === 'function') {
-          return await walker.current.putLiteral(input);
+          await walker.current.putLiteral(input);
+          await walker.tracker.commitChanges();
         } else throw new Error(
           `TODO: put node "${walker.current.constructor.name}"`);
       },

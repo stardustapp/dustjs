@@ -89,10 +89,10 @@ class RootFrame extends require('./BaseFrame.js') {
       `Failed to determine where to store ${this.config.appId} ${this.config.regionId} ${rootPath}`);
 
     if (rootDef.family === 'Collection') {
-      const collection = new FirestoreCollection(rootRef);
+      const collection = new FirestoreCollection(rootRef, this.config.tracker);
       return new CollectionFrame(nodePath.lastName(), rootDef, collection);
     } else if (rootDef.family === 'Document') {
-      const document = new FirestoreDocument(rootRef);
+      const document = new FirestoreDocument(rootRef, this.config.tracker);
       return new DocumentFrame(nodePath.lastName(), rootDef, document);
     } else {
       throw new Error(`TODO: rootDef family ${rootDef.family}`);

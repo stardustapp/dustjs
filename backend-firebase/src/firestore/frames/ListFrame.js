@@ -14,7 +14,7 @@ class ListFrame extends require('./BaseFrame.js') {
     const data = await this.docLens.getData();
     if (!data) return [];
     return data.map((val, idx) => {
-      const subLens = this.docLens.selectField([`${idx}`], {readOnly: true});
+      const subLens = this.docLens.selectField([idx], {readOnly: true});
       return constructFrame(`${idx+1}`, this.nodeSpec.inner, subLens);
     });
   }
@@ -31,12 +31,34 @@ class ListFrame extends require('./BaseFrame.js') {
     };
   }
 
+  putLiteral(input) {
+    if (!input) {
+      this.docLens.clearData();
+      return;
+    }
+    if (input.Type !== 'Folder') throw new Error(
+      `Documents must be stored as Folder entries`);
+
+    this.docLens.setData([]);
+    for (const child of input.Children) {
+      if (!indexRegex.test(child.Name)) throw new Error(
+        `List item given non-numeric name ${child.Name}`);
+      const idx = parseInt(child.Name)-1;
+      if (idx < 0) throw new Error(
+        `List item given invalid index ${child.Name}`);
+
+      const subLens = this.docLens.selectField([idx]);
+      const frame = constructFrame(`${idx+1}`, this.nodeSpec.inner, subLens);
+      frame.putLiteral(child);
+    }
+  }
+
   selectName(name) {
     if (!indexRegex.test(name)) return;
     const index = parseInt(name) - 1;
     if (index < 0) return;
 
-    const subLens = this.docLens.selectField([`${index}`], {readOnly: true});
+    const subLens = this.docLens.selectField([index], {readOnly: true});
     return constructFrame(name, this.nodeSpec.inner, subLens);
   }
 

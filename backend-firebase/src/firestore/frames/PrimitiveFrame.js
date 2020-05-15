@@ -15,15 +15,15 @@ class PrimitiveFrame extends require('./BaseFrame.js') {
     }
   }
 
-  async putLiteral(input) {
+  putLiteral(input) {
     // const doc = {};
 
     // support deletion
     if (!input) {
       // doc[this.fieldPath] = null;
-      console.log('clearing fields', doc, 'on', this.docLens);
+      // console.log('clearing fields', doc, 'on', this.docLens);
       // Datadog.countFireOp('write', this.docLens, {fire_op: 'merge', method: 'field/put'});
-      await this.docLens.clearData();
+      this.docLens.clearData();
       // await this.docLens.set(doc, {
       //   mergeFields: [this.fieldPath],
       // });
@@ -34,9 +34,9 @@ class PrimitiveFrame extends require('./BaseFrame.js') {
       `Primitive fields must be put as String entries`);
 
     const newValue = this.fromStringValue(input.StringValue || '');
-    console.log('setting data', newValue, 'on', this.docLens);
+    // console.log('setting data', newValue, 'on', this.docLens);
     // Datadog.countFireOp('write', this.docLens, {fire_op: 'merge', method: 'field/put'});
-    await this.docLens.setData(newValue);;
+    this.docLens.setData(newValue);
   }
 
   async getStringValue() {
