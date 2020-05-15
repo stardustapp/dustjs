@@ -6,7 +6,7 @@ class BlobFrame extends require('./BaseFrame.js') {
   }
 
   async getLiteral() {
-    let data = await this.docLens.getData();
+    let data = await this.docLens.getData('blob/get');
     if (data == null) {
       if (true) return null; // TODO: determine when blobs should be visible
       // exposing null blobs has the benefit of providing the mime type to the agent
@@ -23,6 +23,6 @@ class BlobFrame extends require('./BaseFrame.js') {
       Data: data.toString('base64'),
     };
   }
-  
+
 }
 module.exports = BlobFrame;

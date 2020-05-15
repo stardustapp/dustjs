@@ -11,7 +11,7 @@ class ListFrame extends require('./BaseFrame.js') {
   }
 
   async getChildFrames() {
-    const data = await this.docLens.getData();
+    const data = await this.docLens.getData('list/getall');
     if (!data) return [];
     return data.map((val, idx) => {
       const subLens = this.docLens.selectField([idx], {readOnly: true});
@@ -76,7 +76,7 @@ class ListFrame extends require('./BaseFrame.js') {
       console.error('WARN: ListFrame#startSubscription snap error:',
           error.code, error.stack || error.message);
       state.markCrashed(error);
-    });
+    }, 'list/subscribe');
   }
 
 }

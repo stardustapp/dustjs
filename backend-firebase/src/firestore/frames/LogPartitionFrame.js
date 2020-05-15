@@ -12,8 +12,8 @@ class LogPartitionFrame extends require('./BaseFrame.js') {
   }
 
   async getChildFrames() {
-    const logHorizon = await this.lenses.horizon.getData();
-    const logLatest = await this.lenses.latest.getData();
+    const logHorizon = await this.lenses.horizon.getData('logpart/listall');
+    const logLatest = await this.lenses.latest.getData('logpart/listall');
     if (logHorizon == null || logLatest == null) {
       return []; // TODO: better handling of empty logs?
     }

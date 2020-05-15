@@ -74,7 +74,7 @@ class CollectionFrame extends require('./BaseFrame.js') {
       console.error('WARN: CollectionFrame#startSubscription snap error:',
           error.code, error.stack || error.message);
       state.markCrashed(error);
-    });
+    }, 'collection/subscribe');
   }
 
 }

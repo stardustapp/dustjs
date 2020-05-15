@@ -202,13 +202,14 @@ const v6Prefix = Object
 const {join, dirname} = require('path');
 const mainDir = dirname(require.main.path);
 const packageInfo = require(join(mainDir, 'package.json'));
+const packageName = packageInfo.name.replace(/^@/, '');
 
 // Set up the singleton metrics sender to share
 exports.Datadog = new Datadog(
   process.env.DD_API_KEY || false,
   os.hostname(), {
-    app: packageInfo.name,
-    app_version: `${packageInfo.name}/${packageInfo.version}`,
+    app: process.env.DD_APP_NAME || packageName,
+    app_version: `${packageName}/${packageInfo.version}`,
 
     host_ipv6: v6Prefix,
     host_user: os.userInfo().username,

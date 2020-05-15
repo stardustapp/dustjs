@@ -40,7 +40,7 @@ class PrimitiveFrame extends require('./BaseFrame.js') {
   }
 
   async getStringValue() {
-    const raw = await this.docLens.getData();
+    const raw = await this.docLens.getData('primitive/get');
     if (raw == null) return null;
     switch (this.nodeSpec.type) {
       case 'String':
@@ -88,7 +88,7 @@ class PrimitiveFrame extends require('./BaseFrame.js') {
       console.error('WARN: PrimitiveFrame#startSubscription snap error:',
           error.code, error.stack || error.message);
       state.markCrashed(error);
-    });
+    }, 'primitive/subscribe');
   }
 
 }

@@ -1,5 +1,7 @@
 const {Firestore} = require('firebase-admin').firestore;
-// Firestore.FieldPath
+const {encode} = require('querystring');
+
+const {Datadog} = require('../lib/datadog.js');
 
 class ReferenceTracker {
   constructor() {
@@ -23,8 +25,27 @@ class ReferenceTracker {
   }
 }
 
-class FirestoreCollection {
+class FirestoreReference {
+  tallyStream(fire_op, info={}, count=1) {
+    Datadog.countFireOp('stream',
+      this._collRef || this._docRef,
+      {fire_op, ...info}, count);
+  }
+  tallyRead(fire_op, info={}, count=1) {
+    Datadog.countFireOp('read',
+      this._collRef || this._docRef,
+      {fire_op, ...info}, count);
+  }
+  tallyWrite(fire_op, info={}, count=1) {
+    Datadog.countFireOp('write',
+      this._collRef || this._docRef,
+      {fire_op, ...info}, count);
+  }
+}
+
+class FirestoreCollection extends FirestoreReference {
   constructor(collRef, tracker) {
+    super();
     Object.defineProperties(this, {
       _collRef: {
         value: collRef,
@@ -43,8 +64,9 @@ class FirestoreCollection {
   }
 
   async getAllSnapshots() {
-    console.log('TODO: getall metrics');
     const result = await this._collRef.get();
+    this.tallyRead('getall', {method: 'collection/get'}, result.size||1);
+
     return result.docs.map(docSnap =>
       new FirestoreDocument(docSnap, this._tracker));
   }
@@ -54,18 +76,20 @@ class FirestoreCollection {
   }
   async deleteAllInner() {
     const querySnap = await this._collRef.get();
-    // Datadog.countFireOp('read', this.collRef, {fire_op: 'getall', method: 'collection/put'}, querySnap.size||1);
-    // Datadog.countFireOp('write', this.collRef, {fire_op: 'delete', method: 'collection/put'}, querySnap.size);
+    this.tallyRead('getall', {method: 'collection/clear'}, querySnap.size||1);
+    this.tallyWrite('delete', {method: 'collection/clear'}, querySnap.size);
+
     console.log('deleting', querySnap.size, 'entries from', this.collPath);
     for (const innerDoc of querySnap.docs) {
       await innerDoc.ref.delete();
     }
   }
 
-  onSnapshot(snapCb, errorCb) {
-    // Datadog.countFireOp('stream', this.collRef, {fire_op: 'onSnapshot', method: 'collection/subscribe'});
+  onSnapshot(snapCb, errorCb, logMethod=null) {
+    this.tallyStream('onSnapshot', {method: logMethod||'collection/unknown'});
     return this._collRef.onSnapshot(querySnap => {
-      // Datadog.countFireOp('read', this.collRef, {fire_op: 'watched', method: 'collection/subscribe'}, querySnap.docChanges().length);
+      this.tallyRead('watched', {method: logMethod||'collection/unknown'}, querySnap.docChanges().length);
+
       snapCb({
         docChanges: () => {
           return querySnap.docChanges().map(change => ({
@@ -78,8 +102,9 @@ class FirestoreCollection {
   }
 }
 
-class FirestoreDocument {
+class FirestoreDocument extends FirestoreReference {
   constructor(docRefOrSnap, tracker, flags={}) {
+    super();
     Object.defineProperties(this, {
       _docRef: {
         value: ('ref' in docRefOrSnap) ? docRefOrSnap.ref : docRefOrSnap,
@@ -119,9 +144,10 @@ class FirestoreDocument {
     return new FirestoreCollection(this._docRef.collection(id), this._tracker);
   }
 
-  async getSnapshot() {
+  async getSnapshot(logMethod=null) {
     if (!this._knownSnap) {
       if (!this._snapPromise) {
+        this.tallyRead('get', {method: logMethod || 'unknown'});
         this._snapPromise = this._docRef.get();
       }
       this._knownSnap = await this._snapPromise;
@@ -130,8 +156,8 @@ class FirestoreDocument {
     return this._knownSnap;
   }
 
-  /*async*/ getData() {
-    return this.getSnapshot()
+  /*async*/ getData(logMethod) {
+    return this.getSnapshot(logMethod)
       .then(x => x.data());
   }
 
@@ -146,8 +172,8 @@ class FirestoreDocument {
   //   this.changes.push([[], 'set', raw]);
   // }
 
-  async getField(keyStack) {
-    let data = await this.getData();
+  async getField(keyStack, logMethod) {
+    let data = await this.getData(logMethod);
     for (const key of keyStack) {
       if (!data || ![Object, Array].includes(data.constructor)) {
         console.log(`getField${JSON.stringify(keyStack)} missed`);
@@ -164,12 +190,12 @@ class FirestoreDocument {
     return new FirestoreDocumentLens(this, keyStack, {...this.flags, ...flags});
   }
 
-  onSnapshot(snapCb, errorCb) {
-    // Datadog.countFireOp('stream', this.docRef, {fire_op: 'onSnapshot', method: 'doc/subscribe'});
+  // TODO: dedupe snapshot stream if there's multiple on one path
+  onSnapshot(snapCb, errorCb, logMethod=null) {
+    this.tallyStream('onSnapshot', {method: logMethod||'doc/unknown'});
     return this._docRef.onSnapshot(docSnap => {
-      // Datadog.countFireOp('read', this.docRef, {fire_op: 'watched', method: 'doc/subscribe'});
-      const doc = new FirestoreDocument(docSnap, null, this.flags);
-      snapCb(doc);
+      this.tallyRead('watched', {method: logMethod||'doc/unknown'});
+      snapCb(new FirestoreDocument(docSnap, null, this.flags));
     }, errorCb);
   }
 
@@ -180,7 +206,6 @@ class FirestoreDocument {
     const doc = {};
     const mergeFields = [];
     const cleared = [];
-    const {encode} = require('querystring');
 
     for (let [keyStack, op, value] of this.changes) {
 
@@ -199,41 +224,39 @@ class FirestoreDocument {
         }
       }
 
-      switch (op) {
-        case 'clear':
-          if (!parentCleared) {
-            cleared.push(encode(keyStack)+'&');
-          }
-          if (keyStack.length > 0) {
+      if (!parentCleared) {
+        cleared.push(encode(keyStack)+'&');
+      }
+
+      if (keyStack.length > 0) {
+        switch (op) {
+          case 'clear':
             top[keyStack.slice(-1)[0]] = null;
-            if (!parentCleared) {
-              mergeFields.push(new Firestore.FieldPath(...keyStack));
-            }
-          }
-          break;
-        case 'set':
-          if (keyStack.length > 0) {
+            break;
+          case 'set':
             top[keyStack.slice(-1)[0]] = value;
-            if (!parentCleared) {
-              mergeFields.push(new Firestore.FieldPath(...keyStack));
-            }
-          }
-          break;
-        default: throw new Error(
-          `TODO: missing doc change op ${op}`);
+            break;
+          default: throw new Error(
+            `TODO: missing doc change op ${op}`);
+        }
+        if (!parentCleared) {
+          mergeFields.push(new Firestore.FieldPath(...keyStack));
+        }
       }
     }
 
     console.log({doc, mergeFields, cleared});
     if (cleared.join(',') === '&') {
       await this._docRef.set(doc);
-    } else if (cleared.length > 0) {
-      console.log("TODO");
-      process.exit(0);
+      this.tallyWrite('set', {method: 'document/commit'});
+    // } else if (cleared.length > 0) {
+    //   console.log("TODO");
+    //   process.exit(10);
     } else {
       await this._docRef.set(doc, {
         mergeFields,
       });
+      this.tallyWrite('merge', {method: 'document/commit'});
     }
   }
 }
@@ -243,10 +266,6 @@ class FirestoreDocumentLens {
     this.rootDoc = rootDoc;
     this.keyStack = keyStack;
     this.flags = flags;
-  }
-
-  /*async*/ getData() {
-    return this.rootDoc.getField(this.keyStack);
   }
 
   selectField(furtherKeys, flags={}) {
@@ -261,6 +280,10 @@ class FirestoreDocumentLens {
     });
   }
 
+  /*async*/ getData(logMethod) {
+    return this.rootDoc.getField(this.keyStack, logMethod);
+  }
+
   clearData() {
     if (this.flags.readOnly) throw new Error(
       `This field is readonly`);
@@ -272,19 +295,17 @@ class FirestoreDocumentLens {
     this.rootDoc.changes.push([this.keyStack, 'set', raw]);
   }
 
-  // TODO: share snapshot stream w/ root document
-  onSnapshot(snapCb, errorCb) {
-    // Datadog.countFireOp('stream', this.docRef, {fire_op: 'onSnapshot', method: 'doc/subscribe'});
-    return this.rootDoc._docRef.onSnapshot(docSnap => {
-      // Datadog.countFireOp('read', this.docRef, {fire_op: 'watched', method: 'doc/subscribe'});
-      const doc = new FirestoreDocument(docSnap, null, this.rootDoc.flags);
-      const docLens = new FirestoreDocumentLens(doc, this.keyStack, this.flags);
-      snapCb(docLens);
-    }, errorCb);
+  onSnapshot(snapCb, errorCb, logMethod=null) {
+    return this.rootDoc.onSnapshot(rootLens => {
+      snapCb(new FirestoreDocumentLens(rootLens, this.keyStack, this.flags));
+    }, errorCb, logMethod || 'field/subscribe');
   }
 }
 
-exports.ReferenceTracker = ReferenceTracker;
-exports.FirestoreCollection = FirestoreCollection;
-exports.FirestoreDocument = FirestoreDocument;
-exports.FirestoreDocumentLens = FirestoreDocumentLens;
+module.exports = {
+  ReferenceTracker,
+  FirestoreReference,
+  FirestoreCollection,
+  FirestoreDocument,
+  FirestoreDocumentLens,
+};

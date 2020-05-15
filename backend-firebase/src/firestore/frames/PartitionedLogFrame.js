@@ -13,8 +13,8 @@ class PartitionedLogFrame extends require('./BaseFrame.js') {
   }
 
   async getChildFrames() {
-    const horizonStr = await this.lenses.horizon.getData();
-    const latestStr = await this.lenses.latest.getData();
+    const horizonStr = await this.lenses.horizon.getData('log/listall');
+    const latestStr = await this.lenses.latest.getData('log/listall');
     if (!horizonStr || !latestStr) {
       return []; // TODO: better handling of empty logs?
     }

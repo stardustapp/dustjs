@@ -130,7 +130,7 @@ class DocumentFrame extends require('./BaseFrame.js') {
       console.error('WARN: DocumentFrame#startSubscription snap error:',
           error.code, error.stack || error.message);
       state.markCrashed(error);
-    });
+    }, 'doc/subscribe');
   }
 
 }
