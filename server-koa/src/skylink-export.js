@@ -41,7 +41,6 @@ exports.SkylinkExport = class SkylinkExport {
 
     this.koa.use(route.post('/', async ctx => {
       // console.log('export POST:', ctx.request.body);
-
       if (ctx.request.body == null) ctx.throw(400,
         `Request body is required for POST`);
       if (typeof ctx.request.body.Op !== 'string') ctx.throw(400,
@@ -53,7 +52,7 @@ exports.SkylinkExport = class SkylinkExport {
     }));
 
     this.koa.use(route.get('/ping', async ctx => {
-      ctx.response.body = 'ok';
+      ctx.response.body = {Ok: true};
     }));
 
     this.koa.ws.use(route.all('/ws', async (ctx) => {

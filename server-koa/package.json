@@ -1,6 +1,6 @@
 {
   "name": "@dustjs/server-koa",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "",
   "main": "src/index.js",
   "scripts": {
@@ -9,7 +9,7 @@
   "author": "Daniel Lamando",
   "license": "MIT",
   "dependencies": {
-    "@dustjs/skylink": "^0.2.1",
+    "@dustjs/skylink": "^0.2.4",
     "@koa/cors": "^2.2.3",
     "koa": "^2.11.0",
     "koa-body": "^4.1.1",
