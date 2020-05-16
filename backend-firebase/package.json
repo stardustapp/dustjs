@@ -1,0 +1,19 @@
+{
+  "name": "@dustjs/backend-firebase",
+  "version": "0.1.0",
+  "description": "",
+  "main": "src/app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Daniel Lamando",
+  "license": "ISC",
+  "dependencies": {
+    "@dustjs/data-tree": "^0.1.0",
+    "@dustjs/server-koa": "^0.2.0",
+    "@dustjs/skylink": "^0.2.3",
+    "firebase-admin": "^8.11.0",
+    "moment": "^2.25.3",
+    "node-fetch": "^2.6.0"
+  }
+}
