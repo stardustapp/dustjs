@@ -8,15 +8,4 @@ export class NamedCollection extends BaseParentElement {
       idType: 'Named',
     };
   }
-
-  // compile(config) {
-  //   return new NamedCollectionNode(
-  //     base.processFields(this.fields, config));
-  // }
 }
-//
-// export class NamedCollectionNode extends base.BaseNode {
-//   construcotr(fieldMap) {
-//     this.fieldMap = fieldMap;
-//   }
-// }

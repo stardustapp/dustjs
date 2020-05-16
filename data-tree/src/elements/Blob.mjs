@@ -15,8 +15,3 @@ export class Blob extends BaseElement {
     };
   }
 }
-
-  // '/userstyle': new DataTree.Blob('text/css', {
-  //   '.css': 'text/css',
-  //   '.scss': 'text/x-scss',
-  // }),

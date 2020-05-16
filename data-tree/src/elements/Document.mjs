@@ -7,11 +7,6 @@ export class Document extends BaseElement {
   }
 
   static family = "Document";
-  // get config() {
-  //   return {
-  //     idType: 'random',
-  //   };
-  // }
 
   makeNode(compiler) {
     const fieldMap = new Array;
