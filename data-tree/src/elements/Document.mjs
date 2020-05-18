@@ -1,22 +1,9 @@
-import {BaseElement, TreeNode} from './_base.mjs';
+import {BaseTreeParentElement, TreeNode} from './_base.mjs';
 
-export class Document extends BaseElement {
+export class Document extends BaseTreeParentElement {
   constructor(fieldsSpec) {
-    super();
-    this.fieldsSpec = fieldsSpec;
+    super('Document', fieldsSpec);
   }
 
   static family = "Document";
-
-  makeNode(compiler) {
-    const fieldMap = new Array;
-    for (const path in this.fieldsSpec) {
-      fieldMap.push([path, compiler.mapChildSpec(this.fieldsSpec[path])]);
-    }
-
-    return new TreeNode(
-      this.constructor.family, {
-        fields: fieldMap
-      });
-  }
 }

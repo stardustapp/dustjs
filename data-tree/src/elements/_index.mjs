@@ -1,3 +1,4 @@
+export {AppRegion} from './AppRegion.mjs';
 export {Blob} from './Blob.mjs';
 export {Collection} from './Collection.mjs';
 export {DatePartitionedLog} from './DatePartitionedLog.mjs';

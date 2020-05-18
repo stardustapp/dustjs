@@ -1,27 +1,29 @@
+import * as util from 'util';
+
 import * as Elements from './elements/_index.mjs';
 import {TreeNode, BaseElement} from './elements/_base.mjs';
-import * as util from 'util';
+import {parseAbsolutePath} from './path-parser.js';
 
 export class Compiler {
   constructor({
     target,
-    pathParser,
   }) {
     this.target = target;
-    this.pathParser = pathParser || (x=>x);
+    this.pathParser = parseAbsolutePath;
   }
 
-  compile(regions) {
-    const regionMap = new Map;
-    for (const region in regions) {
-      const rootMap = new Array;
-      regionMap.set(region, rootMap);
-      for (const rootPath in regions[region]) {
-        const node = this.compileElement(regions[region][rootPath]);
-        rootMap.push([this.pathParser(rootPath), node]);
-      }
-    }
-    return regionMap;
+  compile(app) {
+    return {
+      ...app,
+      roots: app.roots.map(root => {
+        return root.makeNode(this);
+      }),
+      getAppRegion(name) {
+        return this.roots.find(x =>
+          x.family === 'AppRegion' &&
+          x.regionName === name);
+      },
+    };
   }
 
   mapChildSpec(childSpec) {
@@ -41,13 +43,5 @@ export class Compiler {
       default: throw new Error(
         `TODO: Compiler#mapChildSpec default case`);
     }
-  }
-
-  compileElement(rootElement) {
-    const rootNode = rootElement.makeNode(this);
-    // console.log('-->', util.inspect(rootNode, {
-    //   showHidden: false, depth: null, colors: true}));
-
-    return rootNode;
   }
 }
