@@ -60,23 +60,12 @@ class FirebaseProject {
     }
   }
 
-  async registerApplication(appId, schemaImportPath) {
-    console.log('Registering app', appId, '...');
-    const schema = await import(schemaImportPath);
-
-    const {Compiler} = await import('@dustjs/data-tree');
-    const compiler = new Compiler({
+  registerAllApplications(schemaLoader) {
+    this.applications = schemaLoader.compileAll({
       target: 'firestore',
-      pathParser(path) {
-        return PathFragment.from(path);
-      },
-      // TODO
-      // stackValidator(stack) {
     });
-
-    const dataTree = compiler.compile(schema);
-    this.applications.set(appId, dataTree);
-    // throw new Error(`TODO: registerApplication()`);
+    console.log('Registered Firebase apps:',
+      Array.from(this.applications.keys()));
   }
 
   // Creates + returns new sessionId if the token is recognized

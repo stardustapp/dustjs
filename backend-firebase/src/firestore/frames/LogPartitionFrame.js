@@ -11,6 +11,17 @@ class LogPartitionFrame extends require('./BaseFrame.js') {
     this.lenses = lenses; // horizon, latest, entries
   }
 
+  async getLiteral() {
+    if (this.lenses.horizon.rootDoc.hasSnap) {
+      return {Name: this.name, Type: 'Folder', Children: [
+        {Name: 'horizon', Type: 'String', StringValue: await this.lenses.horizon.getData('logpart/get')},
+        {Name: 'latest', Type: 'String', StringValue: await this.lenses.latest.getData('logpart/get')},
+      ]};
+    } else {
+      return {Name: this.name, Type: 'Folder'};
+    }
+  }
+
   async getChildFrames() {
     const logHorizon = await this.lenses.horizon.getData('logpart/listall');
     const logLatest = await this.lenses.latest.getData('logpart/listall');
@@ -20,9 +31,7 @@ class LogPartitionFrame extends require('./BaseFrame.js') {
 
     const entryFrames = [];
     for (let cursor = logHorizon; cursor <= logLatest; cursor++) {
-      const entryId = `${cursor}`;
-      const entryLens = this.lenses.entries.selectDocument(entryId);
-      entryFrames.push(constructFrame(entryId, this.nodeSpec.inner, entryLens));
+      entryFrames.push(this.selectEntry(`${cursor}`);
     }
 
     return [
@@ -37,9 +46,13 @@ class LogPartitionFrame extends require('./BaseFrame.js') {
       case key === 'horizon' || key === 'latest':
         return new PrimitiveFrame(key, {type: 'Number'}, this.lenses[key]);
       case indexRegex.test(key):
-        const entryLens = this.lenses.entries.selectDocument(key);
-        return constructFrame(key, this.nodeSpec.inner, entryLens);
+        return this.selectEntry(key);
     }
+  }
+
+  selectEntry(key) {
+    const entryLens = this.lenses.entries.selectDocument(key);
+    return constructFrame(key, this.nodeSpec.inner, entryLens);
   }
 
 }

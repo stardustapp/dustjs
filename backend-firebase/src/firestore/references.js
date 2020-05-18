@@ -1,4 +1,4 @@
-const {Firestore} = require('firebase-admin').firestore;
+const {FieldPath} = require('firebase-admin').firestore;
 const {encode} = require('querystring');
 
 const {Datadog} = require('../lib/datadog.js');
@@ -240,18 +240,20 @@ class FirestoreDocument extends FirestoreReference {
             `TODO: missing doc change op ${op}`);
         }
         if (!parentCleared) {
-          mergeFields.push(new Firestore.FieldPath(...keyStack));
+          mergeFields.push(new FieldPath(...keyStack));
         }
       }
     }
 
     console.log({doc, mergeFields, cleared});
     if (cleared.join(',') === '&') {
-      await this._docRef.set(doc);
-      this.tallyWrite('set', {method: 'document/commit'});
-    // } else if (cleared.length > 0) {
-    //   console.log("TODO");
-    //   process.exit(10);
+      if (Object.keys(doc).length > 0) {
+        await this._docRef.set(doc);
+        this.tallyWrite('set', {method: 'document/commit'});
+      } else {
+        await this._docRef.delete();
+        this.tallyWrite('delete', {method: 'document/commit'});
+      }
     } else {
       await this._docRef.set(doc, {
         mergeFields,

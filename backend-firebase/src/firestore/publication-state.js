@@ -69,10 +69,18 @@ class PublicationState {
           break;
 
         case 'Error':
-          // simple comparision
-          if (entry.StringValue === prevEntry.StringValue) return;
-          if (entry.Authority === prevEntry.Authority) return;
-          if (entry.Code === prevEntry.Code) return;
+          if ([
+            entry.StringValue === prevEntry.StringValue,
+            entry.Authority === prevEntry.Authority,
+            entry.Code === prevEntry.Code,
+          ].includes(false) === false) return;
+          break;
+
+        case 'Blob':
+          if ([
+            entry.Mime === prevEntry.Mime,
+            entry.Data === prevEntry.Data,
+          ].includes(false) === false) return;
           break;
 
         case 'Folder':

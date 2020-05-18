@@ -4,9 +4,11 @@ const CollectionFrame = require('./CollectionFrame.js');
 const PartitionedLogFrame = require('./PartitionedLogFrame.js');
 const {constructFrame} = require('./_factory.js');
 
-function pathToFieldStack(path) {
-  return path.slice(1).split('\/').map(x => x
-    .replace(/-[a-z]/g, s=>s.slice(1).toUpperCase()));
+function nameToField(name) {
+  return name
+    .replace(/-[a-z]/g, s => s
+      .slice(1)
+      .toUpperCase());
 }
 
 class DocumentFrame extends require('./BaseFrame.js') {
@@ -17,43 +19,36 @@ class DocumentFrame extends require('./BaseFrame.js') {
 
   getChildFrames() {
     const frames = new Array;
-    // const compositeNames = new Map;
-    for (const [subPath, subNode] of this.nodeSpec.fields) {
-      frames.push(this.makeChildFrame(subPath, subNode));
+    for (const [name, spec] of this.nodeSpec.names) {
+      frames.push(this.makeChildFrame(name, spec));
     }
     return frames;
   }
 
-  selectPath(path) {
-    for (const [subPath, subNode] of this.nodeSpec.fields) {
-      const subPathFrag = PathFragment.parse(subPath);
-      if (path.startsWith(subPathFrag)) {
-        return {
-          nextFrame: this.makeChildFrame(subPath, subNode),
-          remainingPath: path.slice(subPathFrag.count()),
-        };
-      }
+  selectName(name) {
+    const childSpec = this.nodeSpec.names.get(name);
+    if (childSpec) {
+      return this.makeChildFrame(name, childSpec);
     }
-    return {};
   }
 
-  makeChildFrame(subPath, subNode) {
-    const fieldStack = pathToFieldStack(subPath);
-    const subName = decodeURIComponent(subPath.slice(1));
-
-    if (subNode.family === 'Collection') {
-      return new CollectionFrame(subName, subNode, this.docLens.selectCollection(subName));
-    } else if (subNode.family === 'PartitionedLog') {
-      return this.makePartitionedLog(subPath, subNode);
+  makeChildFrame(subName, subNode) {
+    switch (subNode.family) {
+      case 'Collection':
+        const collLens = this.docLens.selectCollection(subName);
+        return new CollectionFrame(subName, subNode, collLens);
+      case 'PartitionedLog':
+        return this.makePartitionedLog(subName, subNode);
+      default:
+        const fieldStack = [nameToField(subName)];
+        const subLens = this.docLens.selectField(fieldStack);
+        return constructFrame(subName, subNode, subLens);
     }
-
-    const subLens = this.docLens.selectField(fieldStack);
-    return constructFrame(subName, subNode, subLens);
   }
 
-  makePartitionedLog(subPath, subNode) {
-    const firestorePath = subNode.hints.firestorePath || subPath.slice(1);
-    const logFieldStack = pathToFieldStack('/'+firestorePath);
+  makePartitionedLog(subName, subNode) {
+    const firestorePath = '/'+(subNode.hints.firestorePath || subName);
+    const logFieldStack = firestorePath.slice(1).split('\/').map(nameToField);
 
     let logRootDocLens = this.docLens;
     while (logFieldStack.length > 2) {
@@ -69,7 +64,6 @@ class DocumentFrame extends require('./BaseFrame.js') {
     if (lastLogField !== 'log') throw new Error(
       `TODO: logs must be called 'log' (${firestorePath})`);
 
-    const subName = decodeURIComponent(subPath.slice(1));
     return new PartitionedLogFrame(subName, subNode, {
       horizon: logRootDocLens.selectField([...logFieldStack, `${lastLogField}Horizon`]),
       latest: logRootDocLens.selectField([...logFieldStack, `${lastLogField}Latest`]),

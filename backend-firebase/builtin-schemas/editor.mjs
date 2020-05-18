@@ -1,15 +1,22 @@
-import {Elements as DataTree} from '@dustjs/data-tree';
-
-export const config = {
-  '/prefs': new DataTree.Document({
-    '/userstyle.css': new DataTree.Blob('text/css', 'utf-8'),
-  }),
+export const metadata = {
+  AppName: 'Tree Editor',
+  Author: 'Daniel Lamando',
+  License: 'MIT',
 };
+export function builder(El, addRoot) {
 
-export const persist = {
-  '/bookmarks': new DataTree.Collection({
-    '/path': String,
-    '/label': String,
-    '/color': String,
-  }),
-};
+  addRoot(new El.AppRegion('config', {
+    '/prefs': new El.Document({
+      '/userstyle.css': new El.Blob('text/css', 'utf-8'),
+    }),
+  }));
+
+  addRoot(new El.AppRegion('persist', {
+    '/bookmarks': new El.Collection({
+      '/path': String,
+      '/label': String,
+      '/color': String,
+    }),
+  }));
+
+}

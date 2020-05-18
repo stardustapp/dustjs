@@ -12,6 +12,17 @@ class PartitionedLogFrame extends require('./BaseFrame.js') {
     this.lenses = lenses; // horizon, latest, partitions
   }
 
+  async getLiteral() {
+    if (this.lenses.horizon.rootDoc.hasSnap) {
+      return {Name: this.name, Type: 'Folder', Children: [
+        {Name: 'horizon', Type: 'String', StringValue: await this.lenses.horizon.getData('log/get')},
+        {Name: 'latest', Type: 'String', StringValue: await this.lenses.latest.getData('log/get')},
+      ]};
+    } else {
+      return {Name: this.name, Type: 'Folder'};
+    }
+  }
+
   async getChildFrames() {
     const horizonStr = await this.lenses.horizon.getData('log/listall');
     const latestStr = await this.lenses.latest.getData('log/listall');

@@ -13,18 +13,19 @@ class FirestoreRegionDevice {
         enumerate: async enumer => {
           enumer.visit({Type: 'Folder'});
           if (!enumer.canDescend()) return;
-          for (const [appId, regions] of this.userSession.appMap) {
-            if (regions.has(this.region)) {
-              enumer.descend(appId);
-              if (enumer.canDescend()) {
-                // throw new Error(`TODO: enumerate into app region`)
-                const subEntry = this.getEntry(`/${encodeURIComponent(appId)}`);
-                await subEntry.enumerate(enumer);
-              } else {
-                enumer.visit({Type: 'Folder'});
-              }
-              enumer.ascend();
+          for (const [appId, appInfo] of this.userSession.appMap) {
+            const appRegion = appInfo.getAppRegion(this.region);
+            if (!appRegion) continue;
+
+            enumer.descend(appId);
+            if (enumer.canDescend()) {
+              // throw new Error(`TODO: enumerate into app region`)
+              const subEntry = this.getEntry(`/${encodeURIComponent(appId)}`);
+              await subEntry.enumerate(enumer);
+            } else {
+              enumer.visit({Type: 'Folder'});
             }
+            enumer.ascend();
           }
         },
       };
@@ -32,14 +33,21 @@ class FirestoreRegionDevice {
 
     const path = PathFragment.parse(rawPath);
     const appId = decodeURIComponent(path.parts.shift());
+    const appInfo = this.userSession.appMap.get(appId);
+    if (!appInfo) {
+      return null;
+    }
 
-    const appRegion = this.userSession.appMap.get(appId).get(this.region);
+    const appRegion = appInfo.getAppRegion(this.region);
+    // console.log(appId, this.region, path, appRegion);
+    if (!appRegion) {
+      return null;
+    }
 
-    const regionWalker = new FirestoreRegionWalker({
+    const regionWalker = new FirestoreRegionWalker(appId, appRegion, {
       rootRef: this.userSession.userRef,
       appId: appId,
       regionId: this.region,
-      rootPaths: appRegion,
     });
     if (regionWalker.walkPath(path)) {
       return regionWalker.getEntryApi();

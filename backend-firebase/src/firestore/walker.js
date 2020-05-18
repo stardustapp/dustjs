@@ -3,10 +3,10 @@ const {PublicationState} = require('./publication-state.js');
 const {ReferenceTracker} = require('./references.js');
 
 class FirestoreRegionWalker {
-  constructor(rootOpts) {
+  constructor(rootName, rootSpec, rootConfig) {
     this.tracker = new ReferenceTracker();
-    const rootFrame = new frames.RootFrame({
-      ...rootOpts,
+    const rootFrame = new frames.AppRegionFrame(rootName, rootSpec, {
+      ...rootConfig,
       tracker: this.tracker,
     });
 

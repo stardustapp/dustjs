@@ -1,3 +1,4 @@
+const {Timestamp} = require('firebase-admin').firestore;
 const {parseDateStringOrThrow} = require('../util.js');
 
 class PrimitiveFrame extends require('./BaseFrame.js') {
@@ -16,26 +17,15 @@ class PrimitiveFrame extends require('./BaseFrame.js') {
   }
 
   putLiteral(input) {
-    // const doc = {};
-
     // support deletion
     if (!input) {
-      // doc[this.fieldPath] = null;
-      // console.log('clearing fields', doc, 'on', this.docLens);
-      // Datadog.countFireOp('write', this.docLens, {fire_op: 'merge', method: 'field/put'});
       this.docLens.clearData();
-      // await this.docLens.set(doc, {
-      //   mergeFields: [this.fieldPath],
-      // });
       return;
     }
-
     if (input.Type !== 'String') throw new Error(
       `Primitive fields must be put as String entries`);
 
     const newValue = this.fromStringValue(input.StringValue || '');
-    // console.log('setting data', newValue, 'on', this.docLens);
-    // Datadog.countFireOp('write', this.docLens, {fire_op: 'merge', method: 'field/put'});
     this.docLens.setData(newValue);
   }
 
@@ -67,7 +57,7 @@ class PrimitiveFrame extends require('./BaseFrame.js') {
       case 'Number':
         return parseFloat(val);
       case 'Date':
-        return parseDateStringOrThrow(val);
+        return Timestamp.fromDate(parseDateStringOrThrow(val));
       default:
         console.log('i have data', val, this.nodeSpec);
         throw new Error(`TODO: unmapped DataTree field for ${this.name}`);

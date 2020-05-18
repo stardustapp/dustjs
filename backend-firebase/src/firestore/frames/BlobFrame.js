@@ -6,10 +6,11 @@ class BlobFrame extends require('./BaseFrame.js') {
   }
 
   async getLiteral() {
-    let data = await this.docLens.getData('blob/get');
+    const raw = await this.docLens.getData('blob/get');
+    if (!raw) return null;
+    let [mimeType, data] = raw;
+
     if (data == null) {
-      if (true) return null; // TODO: determine when blobs should be visible
-      // exposing null blobs has the benefit of providing the mime type to the agent
       data = Buffer.from('');
     } else if (typeof data === 'string') {
       data = Buffer.from(data, 'utf-8');
@@ -19,9 +20,34 @@ class BlobFrame extends require('./BaseFrame.js') {
     return {
       Name: this.name,
       Type: 'Blob',
-      Mime: this.nodeSpec.mimeType,
+      Mime: mimeType,
       Data: data.toString('base64'),
     };
+  }
+
+  putLiteral(input) {
+    const {mimeType} = this.nodeSpec;
+
+    // support deletion
+    if (!input) {
+      this.docLens.clearData();
+      return;
+    }
+
+    if (input.Type !== 'Blob') throw new Error(
+      `Blob fields must be put as Blob entries`);
+    if (/*input.Mime && */input.Mime !== mimeType) throw new Error(
+      `This Blob must be of type "${mimeType}", you gave "${input.Mime}"`);
+
+    const data = Buffer.from(input.Data, 'base64');
+    if (data.length > 15*1024) throw new Error(
+      `TODO: Inline Blobs max at 15KiB`);
+
+    if (mimeType.startsWith('text/')) {
+      this.docLens.setData([mimeType, data.toString('utf-8')]);
+    } else {
+      this.docLens.setData([mimeType, data]);
+    }
   }
 
 }

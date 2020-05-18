@@ -31,19 +31,12 @@ Datadog.uidTagCache = new AsyncCache({
   ).split(':');
 
   // load all the application schema models
-  // TODO: better way of having our data-tree libary available to any schema dependent of fs location?
-  const DataTree = await import('@dustjs/data-tree');
-  global.DataTree = DataTree.Elements;
+  const {Compiler, SchemaLoader} = await import('@dustjs/data-tree');
+  const loader = new SchemaLoader(resolve(__dirname, '..'));
   for (const schemaDir of schemaDirs) {
-    const realSchemaDir = resolve(__dirname, '..', schemaDir);
-    for (const fileName of await fs.readdir(realSchemaDir)) {
-      const name = basename(fileName, '.mjs');
-      if (name !== fileName) {
-        await firebase.registerApplication(name, join(realSchemaDir, fileName));
-      }
-    }
+    await loader.loadAllInDirectory(schemaDir);
   }
-  global.DataTree = null;
+  firebase.registerAllApplications(loader);
 
   // check that we have some sort of Firebase access
   const credError = await firebase.checkForCredentialError();
