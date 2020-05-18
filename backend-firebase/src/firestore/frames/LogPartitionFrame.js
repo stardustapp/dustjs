@@ -31,7 +31,7 @@ class LogPartitionFrame extends require('./BaseFrame.js') {
 
     const entryFrames = [];
     for (let cursor = logHorizon; cursor <= logLatest; cursor++) {
-      entryFrames.push(this.selectEntry(`${cursor}`);
+      entryFrames.push(this.selectEntry(`${cursor}`));
     }
 
     return [
@@ -51,7 +51,9 @@ class LogPartitionFrame extends require('./BaseFrame.js') {
   }
 
   selectEntry(key) {
-    const entryLens = this.lenses.entries.selectDocument(key);
+    const entryLens = this.lenses.entries.selectDocument(key, {
+      immutable: true,
+    });
     return constructFrame(key, this.nodeSpec.inner, entryLens);
   }
 

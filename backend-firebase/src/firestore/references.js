@@ -3,6 +3,11 @@ const {encode} = require('querystring');
 
 const {Datadog} = require('../lib/datadog.js');
 
+const IMMUTABLE_DOC_CACHE = new Map;
+setInterval(() => {
+  Datadog.gauge('firestore.cached_docs', IMMUTABLE_DOC_CACHE.size);
+}, 20000);
+
 class ReferenceTracker {
   constructor() {
     this.documents = new Array;
@@ -14,14 +19,13 @@ class ReferenceTracker {
       await wipedColl.deleteAllInner();
     }
 
-    const changedDocs = this.documents.filter(x => x.changes.length > 0);
+    const changedDocs = this.documents
+      .filter(x => x.changes.length > 0);
 
     console.log('commiting', changedDocs.length, 'changed docs to firestore');
     for (const doc of changedDocs) {
-      // console.log(doc);
       await doc.commitChanges();
     }
-    console.log();
   }
 }
 
@@ -59,8 +63,8 @@ class FirestoreCollection extends FirestoreReference {
 
     this.collPath = collRef.path;
   }
-  selectDocument(id) {
-    return new FirestoreDocument(this._collRef.doc(id), this._tracker);
+  selectDocument(id, flags={}) {
+    return new FirestoreDocument(this._collRef.doc(id), this._tracker, flags);
   }
 
   async getAllSnapshots() {
@@ -147,8 +151,23 @@ class FirestoreDocument extends FirestoreReference {
   async getSnapshot(logMethod=null) {
     if (!this._knownSnap) {
       if (!this._snapPromise) {
-        this.tallyRead('get', {method: logMethod || 'unknown'});
+        // from here we want to report a load, even if it's cached
+        // console.log('get snap', logMethod, this.flags, this._docRef.path);
+        let cache = 'none';
+        if (this.flags.immutable) {
+          this._knownSnap = IMMUTABLE_DOC_CACHE.get(this._docRef.path);
+          cache = this._knownSnap ? 'hit' : 'miss';
+        }
+
+        this.tallyRead('get', {cache, method: logMethod || 'unknown'});
+        if (this._knownSnap) {
+          return this._knownSnap;
+        }
         this._snapPromise = this._docRef.get();
+
+        if (this.flags.immutable) {
+          this._snapPromise.then(doc => IMMUTABLE_DOC_CACHE.set(this._docRef.path, doc));
+        }
       }
       this._knownSnap = await this._snapPromise;
       this.hasSnap = true;
@@ -245,15 +264,23 @@ class FirestoreDocument extends FirestoreReference {
       }
     }
 
-    console.log({doc, mergeFields, cleared});
+    // console.log({doc, mergeFields, cleared});
     if (cleared.join(',') === '&') {
       if (Object.keys(doc).length > 0) {
         await this._docRef.set(doc);
+        IMMUTABLE_DOC_CACHE.set(this._docRef.path, {
+          id: this._docRef.id,
+          path: this._docRef.path,
+          data() { return doc; },
+        });
         this.tallyWrite('set', {method: 'document/commit'});
       } else {
         await this._docRef.delete();
         this.tallyWrite('delete', {method: 'document/commit'});
       }
+    } else if (this.flags.immutable) {
+      // todo: also protect against replacements, not just merges
+      throw new Error(`This document is immutable, so it cannot be changed.`);
     } else {
       await this._docRef.set(doc, {
         mergeFields,
