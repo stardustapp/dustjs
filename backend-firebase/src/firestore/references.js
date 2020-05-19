@@ -1,4 +1,4 @@
-const {FieldPath} = require('firebase-admin').firestore;
+const {FieldPath, FieldValue} = require('firebase-admin').firestore;
 const {encode} = require('querystring');
 
 const {Datadog} = require('../lib/datadog.js');
@@ -180,6 +180,11 @@ class FirestoreDocument extends FirestoreReference {
       .then(x => x.data());
   }
 
+  removeData() {
+    if (this.flags.readOnly) throw new Error(
+      `This field is readonly`);
+    this.changes.push([[], 'remove']);
+  }
   clearData() {
     if (this.flags.readOnly) throw new Error(
       `This field is readonly`);
@@ -225,6 +230,7 @@ class FirestoreDocument extends FirestoreReference {
     const doc = {};
     const mergeFields = [];
     const cleared = [];
+    const removed = [];
 
     for (let [keyStack, op, value] of this.changes) {
 
@@ -238,7 +244,9 @@ class FirestoreDocument extends FirestoreReference {
         top = top[name] = top[name] || {};
         miniStack.push(name);
         const prefix = encode(miniStack)+'&';
-        if (cleared.includes(prefix)) {
+        if (removed.includes(prefix)) {
+          throw new Error(`BUG: tried setting underneath a remove`);
+        } else if (cleared.includes(prefix)) {
           parentCleared = true;
         }
       }
@@ -249,6 +257,10 @@ class FirestoreDocument extends FirestoreReference {
 
       if (keyStack.length > 0) {
         switch (op) {
+          case 'remove':
+            top[keyStack.slice(-1)[0]] = FieldValue.delete();
+            removed.push(encode(keyStack)+'&');
+            break;
           case 'clear':
             top[keyStack.slice(-1)[0]] = null;
             break;
@@ -261,23 +273,23 @@ class FirestoreDocument extends FirestoreReference {
         if (!parentCleared) {
           mergeFields.push(new FieldPath(...keyStack));
         }
+      } else if (op === 'remove') {
+        removed.push(encode(keyStack)+'&');
       }
     }
 
-    // console.log({doc, mergeFields, cleared});
-    if (cleared.join(',') === '&') {
-      if (Object.keys(doc).length > 0) {
-        await this._docRef.set(doc);
-        IMMUTABLE_DOC_CACHE.set(this._docRef.path, {
-          id: this._docRef.id,
-          path: this._docRef.path,
-          data() { return doc; },
-        });
-        this.tallyWrite('set', {method: 'document/commit'});
-      } else {
-        await this._docRef.delete();
-        this.tallyWrite('delete', {method: 'document/commit'});
-      }
+    // console.log({doc, mergeFields, removed, cleared});
+    if (removed.join(',') === '&') {
+      await this._docRef.delete();
+      this.tallyWrite('delete', {method: 'document/commit'});
+    } else if (cleared.join(',') === '&') {
+      await this._docRef.set(doc);
+      IMMUTABLE_DOC_CACHE.set(this._docRef.path, {
+        id: this._docRef.id,
+        path: this._docRef.path,
+        data() { return doc; },
+      });
+      this.tallyWrite('set', {method: 'document/commit'});
     } else if (this.flags.immutable) {
       // todo: also protect against replacements, not just merges
       throw new Error(`This document is immutable, so it cannot be changed.`);
@@ -313,6 +325,11 @@ class FirestoreDocumentLens {
     return this.rootDoc.getField(this.keyStack, logMethod);
   }
 
+  removeData() {
+    if (this.flags.readOnly) throw new Error(
+      `This field is readonly`);
+    this.rootDoc.changes.push([this.keyStack, 'remove']);
+  }
   clearData() {
     if (this.flags.readOnly) throw new Error(
       `This field is readonly`);

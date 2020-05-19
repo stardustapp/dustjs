@@ -91,7 +91,7 @@ class DocumentFrame extends require('./BaseFrame.js') {
 
   putLiteral(input) {
     if (!input) {
-      this.docLens.clearData();
+      this.docLens.removeData();
       return;
     }
     if (input.Type !== 'Folder') throw new Error(
