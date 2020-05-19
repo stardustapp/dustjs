@@ -1,9 +1,15 @@
 const {constructFrame} = require('./_factory.js');
 
+const innerWhitelist = [
+  'Primitive',
+  'Document',
+  'Blob',
+];
+
 class MapFrame extends require('./BaseFrame.js') {
   constructor(name, nodeSpec, docLens) {
-    if (nodeSpec.inner.family !== 'Primitive') throw new Error(
-      `TODO: MapFrame only supports Primitive entries`);
+    if (!innerWhitelist.includes(nodeSpec.inner.family)) throw new Error(
+      `TODO: MapFrame only supports ${innerWhitelist} entries, not ${nodeSpec.inner.family}`);
     super(name, nodeSpec);
     this.docLens = docLens;
   }
@@ -48,6 +54,23 @@ class MapFrame extends require('./BaseFrame.js') {
   selectName(key) {
     const subLens = this.docLens.selectField([key]);
     return constructFrame(key, this.nodeSpec.inner, subLens);
+  }
+
+  startSubscription(state, Depth) {
+    return this.docLens.onSnapshot(async docSnap => {
+      const frame = new MapFrame(this.name, this.nodeSpec, docSnap);
+      const entry = await frame.getLiteral();
+      if (entry) {
+        state.offerPath('', entry);
+      } else {
+        state.removePath('');
+      }
+      state.markReady();
+    }, error => {
+      console.error('WARN: MapFrame#startSubscription snap error:',
+          error.code, error.stack || error.message);
+      state.markCrashed(error);
+    }, 'map/subscribe');
   }
 
 }
