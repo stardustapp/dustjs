@@ -36,7 +36,7 @@ class BlobFrame extends require('./BaseFrame.js') {
   putLiteral(input) {
     // support deletion
     if (!input) {
-      this.docLens.clearData();
+      this.docLens.removeData();
       return;
     }
     const mimeType = this.fullMime;
