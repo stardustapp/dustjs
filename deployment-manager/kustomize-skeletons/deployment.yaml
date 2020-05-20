@@ -1,0 +1,65 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+      - name: app
+        image: dustjs-backend-firebase
+        ports:
+        - name: http
+          containerPort: 9231
+
+        resources:
+          requests:
+            cpu: 25m
+            memory: 250Mi
+          limits:
+            cpu: 1000m
+            memory: 500Mi
+
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 30
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 60
+
+        envFrom:
+        - secretRef:
+            name: api-env
+        env:
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: /run/secret/firebase-service-account.json
+        - name: DUSTJS_SCHEMA_PATH
+          value: /opt/dustjs-schemas/
+
+        volumeMounts:
+        - name: secrets
+          mountPath: /run/secret
+        - name: schemas
+          mountPath: /opt/dustjs-schemas
+
+      volumes:
+      - name: secrets
+        secret:
+          secretName: api-files
+      - name: schemas
+        configMap:
+          name: api-schemas
+
+      # don't care about preemptible status
+      tolerations:
+      - key: cloud.google.com/gke-preemptible
+        operator: Exists
+        effect: NoSchedule
