@@ -41,14 +41,8 @@ exports.handler = async argv => {
     console.log(`==> Building @dustjs/client locally`);
     const path = argv['client-lib-dir'];
     const jsFile = 'dustjs-client.umd.js';
-    clientLibs.push([
-      join(path, 'dist', jsFile),
-      jsFile,
-    ]);
-    clientLibs.push([
-      join(path, 'dist', jsFile+'.map'),
-      jsFile+'.map',
-    ]);
+    clientLibs.push(join(path, 'dist', jsFile));
+    clientLibs.push(join(path, 'dist', jsFile+'.map'));
 
     const output = await visiblyExec(`npm`, [`run`, `build`], {
       cwd: join(path),
@@ -71,18 +65,26 @@ exports.handler = async argv => {
       await visiblyExec('cp', ['-ra', join(app.directory, 'web'), webTarget]);
     }
 
-
     // js libraries
     const libDir = join(targetDir, '~~', 'lib');
     await visiblyExec('mkdir', ['-p', libDir]);
     await visiblyExec('cp', ['-ra',
       join(__dirname, '..', 'files', 'vendor-libs'),
       join(libDir, 'vendor')]);
-    for (const lib of clientLibs) {
-      await visiblyExec('cp', ['-a',
-        lib[0],
-        join(libDir, lib[1])]);
-    }
+
+    // copy all the dynamic libs in one command
+    await visiblyExec('cp', ['-a',
+      ...clientLibs,
+      libDir+'/']);
+
+    // install minified vuejs
+    // TODO: obtain the minified versions directly
+    await visiblyExec('mv', [
+      join(libDir, 'vendor', 'vue.min.js'),
+      join(libDir, 'vendor', 'vue.js')]);
+    await visiblyExec('mv', [
+      join(libDir, 'vendor', 'vue-router.min.js'),
+      join(libDir, 'vendor', 'vue-router.js')]);
 
     // fonts
     const fontDir = join(targetDir, '~~', 'fonts');
