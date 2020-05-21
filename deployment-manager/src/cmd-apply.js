@@ -20,6 +20,7 @@ exports.builder = yargs => yargs
   .default('backend-image-tag', 'latest')
   .default('deployments-dir', DUSTJS_DEPLOYMENTS_DIR)
   .default('client-lib-dir', '/home/dan/Code/@stardustapp/dustjs/client')
+  .default('client-vue-lib-dir', '/home/dan/Code/@stardustapp/dustjs/client-vue')
   .default('apps-path', DUSTJS_APPS_PATH)
 ;
 
@@ -43,6 +44,23 @@ exports.handler = async argv => {
     const jsFile = 'dustjs-client.umd.js';
     clientLibs.push(join(path, 'dist', jsFile));
     clientLibs.push(join(path, 'dist', jsFile+'.map'));
+
+    const output = await visiblyExec(`npm`, [`run`, `build`], {
+      cwd: join(path),
+    });
+    const createdLine = output.stdout.split('\n')
+      .find(str => str.includes('created') && str.includes(jsFile));
+    console.log(`-->`, createdLine || 'rollup completed weirdly!');
+    console.log();
+  }
+  if (argv.only.includes('client-vue')) {
+    console.log(`==> Building @dustjs/client-vue locally`);
+    const path = argv['client-vue-lib-dir'];
+    const jsFile = 'dustjs-client-vue.umd.js';
+    clientLibs.push(join(path, 'dist', jsFile));
+    clientLibs.push(join(path, 'dist', jsFile+'.map'));
+    const cssFile = 'dustjs-client-vue.css';
+    clientLibs.push(join(path, 'dist', cssFile));
 
     const output = await visiblyExec(`npm`, [`run`, `build`], {
       cwd: join(path),

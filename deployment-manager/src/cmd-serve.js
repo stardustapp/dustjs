@@ -20,6 +20,7 @@ exports.builder = yargs => yargs
   .default('only', ['firebase', 'kubernetes'])
   .default('deployments-dir', DUSTJS_DEPLOYMENTS_DIR)
   .default('client-lib-dir', '/home/dan/Code/@stardustapp/dustjs/client')
+  .default('client-vue-lib-dir', '/home/dan/Code/@stardustapp/dustjs/client-vue')
   .default('apps-path', DUSTJS_APPS_PATH)
 ;
 
@@ -106,6 +107,47 @@ exports.handler = async argv => {
       });
     });
     console.log(`-->`, `Compiled @dustjs/client`);
+    console.log();
+  }
+
+  if (argv.only.includes('client-vue')) {
+    console.log(`==> Preparing @dustjs/client-vue livecompile`);
+    const path = argv['client-vue-lib-dir'];
+    const jsFile = 'dustjs-client-vue.umd.js';
+    clientLibs.push(join(path, 'dist', jsFile));
+    clientLibs.push(join(path, 'dist', jsFile+'.map'));
+    const cssFile = 'dustjs-client-vue.css';
+    clientLibs.push(join(path, 'dist', cssFile));
+
+    const args = ['run', 'dev'];
+    console.log(`    ${chalk.gray.bold('npm')} ${chalk.gray(args.join(' '))}`);
+    const clientBuild = execa(`npm`, args, {
+      cwd: join(path),
+      all: true,
+      buffer: false,
+    });
+    runner.addProcess(clientBuild);
+
+    await new Promise((resolve, reject) => {
+      clientBuild.all.once('end', () => resolve(null));
+      clientBuild.all.on('data', async chunk => {
+        for (const str of chunk.toString('utf-8').trim().split(`\n`)) {
+          // TODO: 'waiting for changes' only logged when in pty
+          if (str.includes('waiting for changes')) {
+            resolve(true);
+          } else if (str.includes('created') && str.includes(jsFile)) {
+            console.log(`   `, chalk.magenta('rollup:'), str);
+            resolve(str);
+          } else if (str.includes('!')) {
+            if (argv['send-notifs'] && str.includes('[!]')) {
+              await execa('notify-send', ['-a', 'dust-deployer serve', 'rollup build error', str]);
+            }
+            console.log(`   `, chalk.magenta('rollup:'), str);
+          }
+        }
+      });
+    });
+    console.log(`-->`, `Compiled @dustjs/client-vue`);
     console.log();
   }
 
