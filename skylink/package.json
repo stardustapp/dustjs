@@ -1,6 +1,6 @@
 {
   "name": "@dustjs/skylink",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Defines a common implemention of the Skylink protocol for the Stardust project.",
   "author": "Daniel Lamando",
   "license": "MIT",
@@ -11,8 +11,13 @@
     "require": "./dist/dustjs-skylink.cjs",
     "import": "./src/index.js"
   },
+  "files": [
+    "src",
+    "dist"
+  ],
   "browser": "./dist/dustjs-skylink.umd.js",
   "scripts": {
+    "prepublish": "rollup -c",
     "build": "rollup -c",
     "dev": "rollup -c -w",
     "pretest": "npm run build",
