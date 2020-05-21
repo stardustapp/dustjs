@@ -1,22 +1,96 @@
 import {Skylink} from '../skylink/client.js';
 
-export class Launchpad {
-  constructor(domainName, chartName, appId) {
+export class BaseLaunchpad {
+  constructor(domainName, appId) {
     this.domainName = domainName;
-    this.chartName = chartName;
     this.appId = appId;
 
     this.status = 'Idle';
+    this.skychart = new Skylink('', this.generateEndpoint('http'));
 
-    // Autoconfigure skychart endpoint, defaulting to TLS
-    // Downgrade to insecure where real certs don't go: localhost, LAN, and IPs
-    let protocol = 'wss';
+    console.log('Configuring', this.constructor.name, 'for app', appId);
+  }
+
+  generateEndpoint(baseScheme, subdomain='api.', localport=':9231') {
+    // Autoconfigure endpoint, defaulting to TLS
+    // Allow downgrades to insecure where real certs don't go:
+    //   localhost, LAN, and IPs
+    let protocol = baseScheme+'s';
+    let domainName = `${subdomain}${this.domainName}`;
     if (this.domainName.match(/^(localhost|[^.]+.(?:lan|local)|(?:\d{1,3}\.)+\d{1,3})(?::(\d+))?$/)) {
-      protocol = 'ws';
+      if (location.protocol === 'http:') {
+        protocol = baseScheme;
+      }
+      domainName = `${this.domainName}${localport}`;
     }
-    this.endpoint = `${protocol}://${this.domainName}/~~export/ws`;
 
-    console.log('Configuring orbiter launchsite for chart', chartName, '- app', appId);
+    let path = '/~~export';
+    if (baseScheme === 'ws') {
+      path += `/ws`;
+    }
+
+    return `${protocol}://${domainName}${path}`;
+  }
+}
+
+export class FirebaseLaunchpad extends BaseLaunchpad {
+  constructor(domainName, appId) {
+    super(domainName, appId);
+  }
+
+  static forCurrentUserApp() {
+    // Discover appId from app's HTML document
+    const appIdMeta = document.querySelector('meta[name=x-stardust-appid]');
+    if (!(appIdMeta && appIdMeta.content)) {
+      throw new Error('add <meta name=x-stardust-appid ...> tag');
+    }
+    const appId = appIdMeta.content;
+
+    return new FirebaseLaunchpad(localStorage.domainName || location.hostname, appId);
+  }
+
+  async discover() {
+    await domLoaded;
+    this.status = 'Waiting for login';
+    this.user = await new Promise(resolve => {
+      firebase.auth().onAuthStateChanged(user => {
+        if (user) resolve(user);
+      });
+    });
+    this.status = 'Located';
+
+    this.metadata = {
+      ownerName: this.user.displayName,
+      ownerEmail: this.user.email,
+      homeDomain: 'localhost',
+    };
+
+    return this.metadata;
+  }
+
+  async launch() {
+    const result = await this.skychart.invoke('/idtoken-launch/invoke',
+      Skylink.toEntry('ticket', {
+        'ID Token': await this.user.getIdToken(),
+        'App ID': this.appId,
+      }));
+
+    if (result.Name === 'error') {
+      this.status = 'Located';
+      return Promise.reject(result.StringValue);
+    } else {
+      // this.skychart.stopTransport();
+      this.status = 'Done';
+      return '/pub/sessions/' + result.StringValue + '/mnt';
+    }
+  }
+}
+
+// original class for old servers
+export class LegacyChartLaunchpad extends BaseLaunchpad {
+  constructor(domainName, chartName, appId) {
+    super(domain, appId);
+    this.chartName = chartName;
   }
 
   static forCurrentUserApp() {
@@ -37,7 +111,7 @@ export class Launchpad {
     }
     const chartName = location.pathname.split('/')[1].slice(1);
 
-    return new Launchpad(localStorage.domainName || location.hostname, chartName, appId);
+    return new LegacyChartLaunchpad(localStorage.domainName || location.hostname, chartName, appId);
   }
 
   // Discover saved secret from localStorage, if any
@@ -69,9 +143,6 @@ export class Launchpad {
       throw new Error(`Launchpad was in status ${this.status}, not ready to discover`);
     }
     this.status = 'Discovering';
-
-    // Start up the bootstrap connection
-    this.skychart = new Skylink('', this.endpoint);
 
     return this.skychart
       .invoke('/pub/open/invoke', Skylink.String('', this.chartName), '/tmp/chart')
@@ -115,7 +186,7 @@ export class Launchpad {
           this.status = 'Located';
           return Promise.reject(x.StringValue);
         } else {
-          this.skychart.stopTransport();
+          // this.skychart.stopTransport();
           this.status = 'Done';
           return '/pub/sessions/' + x.StringValue + '/mnt';
         }

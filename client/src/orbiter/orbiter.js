@@ -1,11 +1,11 @@
-import {Launchpad} from './launchpad.js';
+import * as launchpads from './launchpad.js';
 import {MountTable} from './mount-table.js';
 
 export class Orbiter {
-  constructor() {
+  constructor(flavor='legacy') {
     this.metadata = {};
-    this.endpoint = '';
     this.path = '';
+    this.flavor = flavor;
 
     this.launcher = null;
     this.skylink = null;
@@ -21,16 +21,23 @@ export class Orbiter {
   }
 
   autoLaunch(launcher) {
-    if (!launcher) {
-      launcher = Launchpad.forCurrentUserApp();
-    }
     this.launcher = launcher;
     this.status = 'Launching';
+    if (!this.launcher) {
+      if (this.flavor === 'firebase') {
+        this.launcher = launchpads.FirebaseLaunchpad.forCurrentUserApp();
+        const {domainName, appId} = this.launcher;
+        const baseUri = `skylink://${domainName}/~${appId}`;
+        this.mountTable = new MountTable(baseUri, x => this.status = x);
+      } else {
+        this.launcher = launchpads.LegacyChartLaunchpad.forCurrentUserApp();
+        const {chartName, domainName, appId} = this.launcher;
+        const baseUri = `skylink://${chartName}@${domainName}/~${appId}`;
+        this.mountTable = new MountTable(baseUri, x => this.status = x);
+      }
+    }
 
-    const {chartName, domainName, appId} = this.launcher;
-    const baseUri = `skylink://${chartName}@${domainName}/~${appId}`;
-    this.mountTable = new MountTable(baseUri, x => this.status = x);
-
+    console.log('launcher', this.launcher);
     return this.launcher.discover()
       .then(data => {
         this.metadata = data;
@@ -38,16 +45,18 @@ export class Orbiter {
       })
       .catch(err => {
         this.status = 'Failed: ' + err;
-        var pass = typeof prompt === 'function' && prompt(`${err}\n\nInput a secret:`);
-        if (pass) {
-          return this.launcher.launch(pass);
+        if (`${err}`.includes('secret')) {
+          var pass = typeof prompt === 'function' && prompt(`${err}\n\nInput a secret:`);
+          if (pass) {
+            return this.launcher.launch(pass);
+          }
         }
         throw err;
       })
       .then(path => {
         // TODO: mount to /srv
         this.mountTable.mount('', 'skylink', {
-          endpoint: this.launcher.endpoint,
+          endpoint: this.launcher.generateEndpoint('ws'),
           path: path,
           stats: this.stats,
         });

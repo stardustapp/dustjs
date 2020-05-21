@@ -1,6 +1,7 @@
 export class SkylinkHttpTransport {
-  constructor(endpoint) {
+  constructor(endpoint, stats) {
     this.endpoint = endpoint;
+    this.stats = stats;
 
     // Mark good once a ping goes in. Never mark done.
     var doneAnswer;
@@ -29,7 +30,7 @@ export class SkylinkHttpTransport {
     })
     .then(this.checkHttpOk)
     .then(x => x.json())
-    .then(this.checkOk)
+    .then(this.checkOk.bind(this))
     .then(x => x, err => {
       if (typeof process === 'undefined' || !process.argv.includes('-q'))
         console.warn('Failed netop:', request);

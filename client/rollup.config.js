@@ -1,5 +1,5 @@
 import resolve from '@rollup/plugin-node-resolve';
-// import commonjs from '@rollup/plugin-commonjs';
+import commonjs from '@rollup/plugin-commonjs';
 import ignore from 'rollup-plugin-ignore';
 import { terser } from 'rollup-plugin-terser';
 import pkg from './package.json';
@@ -27,7 +27,7 @@ export default [
       ignore(['path', 'fs/promises']), // used for nodejs filesystem-device.js
       terser(),
       resolve(), // so Rollup can find `skylink`
-      // commonjs(), // so Rollup can convert things to an ES module
+      commonjs(), // so Rollup can convert things to an ES module
     ],
   },
 
@@ -37,6 +37,7 @@ export default [
     external: [
       ...external,
       '@dustjs/skylink',
+      'base64-js',
     ],
     output: [
       {

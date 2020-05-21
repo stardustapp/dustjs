@@ -1,3 +1,6 @@
+import {Channel} from '../../data/channel.js';
+import {entryToJS} from '../ns-convert.js';
+
 export class SkylinkWsTransport {
   constructor(endpoint, stats, oneshot) {
     this.endpoint = endpoint;

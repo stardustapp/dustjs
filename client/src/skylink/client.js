@@ -1,5 +1,8 @@
+import * as base64js from 'base64-js';
+
 import {SkylinkHttpTransport} from './transports/http.js';
 import {SkylinkWsTransport} from './transports/ws.js';
+import {entryToJS} from './ns-convert.js';
 
 export class Skylink {
   constructor(prefix, endpoint, stats) {
@@ -195,16 +198,8 @@ export class Skylink {
     return this.get(path).then(x => {
       if (x.Type !== 'Blob') {
         return Promise.reject(`Expected ${path} to be a Blob but was ${x.Type}`);
-      }
-      // use native base64 when in nodejs
-      if (typeof Buffer != 'undefined') {
-        const buffer = Buffer.from(x.Data || '', 'base64');
-        buffer.mime = x.Mime;
-        return buffer;
       } else {
-        const bytearr = base64js.toByteArray(x.Data || '');
-        bytearr.mime = x.Mime;
-        return bytearr;
+        return entryToJS(x);
       }
     });
   }
@@ -219,10 +214,10 @@ export class Skylink {
 
   loadString(path) {
     return this.get(path).then(x => {
-      if (x.Type !== 'String') {
-        return Promise.reject(`Expected ${path} to be a String but was ${x.Type}`);
+      if (x && x.Type !== 'String') {
+        return Promise.reject(`Expected ${path} to be a String but was ${x && x.Type}`);
       } else {
-        return x.StringValue || '';
+        return x && x.StringValue || '';
       }
     }, err => {
       // missing entries should be empty
@@ -289,12 +284,22 @@ export class Skylink {
 
   static Blob(name, data, mime=null) {
     // use native base64 when in nodejs
-    if (typeof Buffer != 'undefined' && data && data.constructor === Buffer) {
+    if (typeof Buffer !== 'undefined' && data && data.constructor === Buffer) {
       return {
         Name: name,
         Type: 'Blob',
         Data: data.toString('base64'),
         Mime: mime || data.mime,
+      };
+    } else if (typeof TextEncoder !== 'undefined') {
+      // polyfil + TextEncoder needed to support emoji
+      const dataArray = new TextEncoder('utf-8').encode(data);
+      const wireData = base64js.fromByteArray(dataArray);
+      return {
+        Type: 'Blob',
+        Name: name,
+        Data: wireData,
+        Mime: mime,
       };
     }
   }

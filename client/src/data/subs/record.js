@@ -56,7 +56,7 @@ export class RecordSubscription {
       // new document
       const [id] = parts;
       const doc = {
-        _id: id,
+        _id: decodeURIComponent(id),
         _path: this.basePath + '/' + id,
       };
       if (this.selfItems) {

@@ -1,5 +1,7 @@
 "use strict";
 
+// import * as Skylink from '@dustjs/skylink';
+
 import * as Constants from './constants.js';
 import * as Skychart from './skychart.js';
 
@@ -20,6 +22,7 @@ import * as SkylinkClient from './skylink/client.js';
 import * as SkylinkNsConvert from './skylink/ns-convert.js';
 
 export default {
+  // sss: Skylink,
   ...Constants,
   ...Skychart,
   ...DataSubsBase,
