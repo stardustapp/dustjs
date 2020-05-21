@@ -5,10 +5,10 @@ const yaml = require('js-yaml');
 const chalk = require('chalk');
 const execa = require('execa');
 
+const Loader = require('./loader.js');
 const Kubernetes = require('./kubernetes.js');
 
 const {DUSTJS_DEPLOYMENTS_DIR, DUSTJS_APPS_PATH} = process.env;
-// var doc = yaml.safeLoad(fs.readFileSync('/home/ixti/example.yml', 'utf8'));
 
 exports.builder = yargs => yargs
   // .positional('port', {
@@ -25,49 +25,11 @@ exports.builder = yargs => yargs
 exports.handler = async argv => {
   // console.log('input:', argv);
   console.log();
-  console.log('==> Loading deployment configuration...');
-
-  const rcData = await fs.readFile(join(process.cwd(), 'firebase', '.firebaserc'), 'utf-8');
-  const firebaseRc = JSON.parse(rcData);
-  const firebaseProject = firebaseRc.projects.default;
-  // console.log(firebaseRc);
-
-  const appsDirs = argv.appsPath.split(':');
-
-  const deploymentDir = join(argv.deploymentsDir, firebaseProject);
-  const deploymentConfig = yaml.safeLoad(await fs.readFile(join(deploymentDir, 'config.yaml'), 'utf-8'));
-  // console.log(deploymentConfig);
-
-  async function tryDiscoverApp(config, appDir) {
-    const schemaPath = join(appDir, 'schema.mjs');
-    const schemaExists = await fs.access(schemaPath)
-      .then(() => true, () => false);
-    if (schemaExists) {
-      console.log('    Found', chalk.bold(config.id), 'at', chalk.green(appDir));
-      return { ...config, directory: appDir };
-    }
-  }
-
-  console.log('--> Discovering applications...');
-  const apps = await Promise.all(deploymentConfig.apps.map(async app => {
-    if (typeof app.id !== 'string' || app.id.includes('/')) throw new Error(
-      `Invalid app ID ${JSON.stringify(app.id)}`);
-
-    switch (true) {
-      case 'standard' in app:
-        for (const appsDir of appsDirs) {
-          const appDir = join(appsDir, app.standard);
-          const discovery = await tryDiscoverApp(app, appDir);
-          if (discovery) return discovery;
-        }
-      case 'source' in app:
-        const appDir = join(process.cwd(), app.source);
-        const discovery = await tryDiscoverApp(app, appDir);
-        if (discovery) return discovery;
-    }
-    throw new Error(`Failed to find app for ${JSON.stringify(app)}`);
-  }));
-  console.log('--> Located all', chalk.yellow(apps.length), 'applications :)');
+  const {
+    configDir,
+    projectConfig,
+    resolvedApps,
+  } = await Loader.loadProjectConfig(process.cwd(), argv);
   console.log();
 
   if (argv.only.includes('firebase')) {
@@ -76,7 +38,7 @@ exports.handler = async argv => {
     await visiblyExec('rm', ['-rf', targetDir]);
     // await visiblyExec('mkdir', [targetDir]);
     await visiblyExec('cp', ['-ra', join('firebase', 'public'), targetDir]);
-    for (const app of apps) {
+    for (const app of resolvedApps) {
       const webTarget = join(targetDir, app.id);
       // await visiblyExec('rm', ['-rf', webTarget]);
       await visiblyExec('cp', ['-ra', join(app.directory, 'web'), webTarget]);
@@ -121,7 +83,7 @@ exports.handler = async argv => {
 
     const {
       kubernetes, allowed_origins, domain, env,
-    } = deploymentConfig.backend_deployment;
+    } = projectConfig.backend_deployment;
 
     await writeFile(join(targetDir, 'ingress.yaml'), yaml.safeDump(Kubernetes.generateIngress({
       serviceName: 'api',
@@ -131,7 +93,7 @@ exports.handler = async argv => {
 
     const {
       project_id, database_url, admin_uids,
-    } = deploymentConfig.authority.firebase;
+    } = projectConfig.authority.firebase;
 
     await writeFile(join(targetDir, 'deployment-patch.yaml'), yaml.safeDump(Kubernetes.generateDeploymentPatch('api', {
       deployment: kubernetes.replicas == null ? {} : {
@@ -149,7 +111,7 @@ exports.handler = async argv => {
     await writeFile(join(targetDir, 'kustomization.yaml'), yaml.safeDump({
       commonLabels: kubernetes.labels,
       namespace: kubernetes.namespace,
-      namePrefix: `${firebaseProject}-`,
+      namePrefix: `${project_id}-`,
       resources: [
         'deployment.yaml',
         'service.yaml',
@@ -160,7 +122,7 @@ exports.handler = async argv => {
       ],
       configMapGenerator: [{
         name: 'api-schemas',
-        files: apps.map(app => `${app.id}.mjs=schemas/${app.id}.mjs`),
+        files: resolvedApps.map(app => `${app.id}.mjs=schemas/${app.id}.mjs`),
       }],
       secretGenerator: [{
         name: 'api-files',
@@ -178,11 +140,11 @@ exports.handler = async argv => {
 
     console.log(`    Adding backend schemas`);
     await visiblyExec('mkdir', [join(targetDir, 'schemas')]);
-    for (const app of apps) {
+    for (const app of resolvedApps) {
       const target = join(targetDir, 'schemas', `${app.id}.mjs`);
       await visiblyExec('cp', [join(app.directory, 'schema.mjs'), target]);
     }
-    if (deploymentConfig.extraSchemasDir) {
+    if (projectConfig.extraSchemasDir) {
       for (const schemaFile of await fs.readdir(extraSchemasDir)) {
         const target = join(targetDir, 'schemas', schemaFile);
         await visiblyExec('cp', [join(extraSchemasDir, schemaFile), target]);
@@ -191,7 +153,7 @@ exports.handler = async argv => {
 
     try {
       console.log(`    Adding secrets`);
-      await visiblyExec('cp', [join(deploymentDir, 'firebase-service-account.json'), targetDir]);
+      await visiblyExec('cp', [join(configDir, 'firebase-service-account.json'), targetDir]);
       await writeFile(join(targetDir, 'api.env'), Object.keys(env).map(key => `${key}=${env[key]}`).join(`\n`)+`\n`);
 
       // const kustomized = await visiblyExec('kustomize', ['build', targetDir]);
