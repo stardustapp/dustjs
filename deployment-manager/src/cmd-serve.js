@@ -15,6 +15,8 @@ exports.builder = yargs => yargs
   //   default: 5000
   // })
   .array('only')
+  .boolean('send-notifs')
+  .default('send-notifs', false)
   .default('only', ['firebase', 'kubernetes'])
   .default('deployments-dir', DUSTJS_DEPLOYMENTS_DIR)
   .default('client-lib-dir', '/home/dan/Code/@stardustapp/dustjs/client')
@@ -175,8 +177,13 @@ exports.handler = async argv => {
           resolve(str.match(/http[:\/a-z0-9\[\]-]+/i)[0]);
         } else if (match) {
           const [_, verb, path, proto, status, size] = match;
-          const statusColor = {'2': 'green', '3': 'cyan', '4': 'yellow', '5': 'red'}[status[0]] || 'cyan';
-          console.log(`   `, chalk.blue(verb), chalk.cyan(path), chalk[statusColor](status));
+          if (status === '200' && path.includes('__')) {
+            console.log(`   `, chalk.gray(`${verb} ${path} ${status}`));
+          } else {
+            const statusColor = {'2': 'green', '3': 'cyan', '4': 'yellow', '5': 'red'}[status[0]] || 'cyan';
+            const extraFmt = (parseInt(status) >= 300) ? 'bold' : statusColor;
+            console.log(`   `, chalk.blue(verb), chalk.cyan(path), chalk[statusColor][extraFmt](status));
+          }
         }
       });
     });
