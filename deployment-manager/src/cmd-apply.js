@@ -16,7 +16,7 @@ exports.builder = yargs => yargs
   //   default: 5000
   // })
   .array('only')
-  .default('only', ['firebase', 'kubernetes'])
+  .default('only', ['firebase', 'backend'])
   .default('backend-image-tag', 'latest')
   .default('deployments-dir', DUSTJS_DEPLOYMENTS_DIR)
   .default('apps-path', DUSTJS_APPS_PATH)
@@ -74,7 +74,7 @@ exports.handler = async argv => {
     console.log();
   }
 
-  if (argv.only.includes('kubernetes')) {
+  if (argv.only.includes('backend')) {
     console.log(`--> Preparing backend kustomization`);
     const targetDir = (await visiblyExec(`mktemp`, ['-d'])).stdout;
 

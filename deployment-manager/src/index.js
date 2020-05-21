@@ -12,6 +12,8 @@ exports.runCli = () => yargs
   .usage('Usage: $0 <command> ...')
   .command('apply', 'roll out changes to the cloud',
     require('./cmd-apply.js'))
+  .command('serve', 'launch development server on localhost',
+    require('./cmd-serve.js'))
   .demandCommand()
 
   // version
