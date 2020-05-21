@@ -50,7 +50,7 @@ export class FirebaseLaunchpad extends BaseLaunchpad {
   }
 
   async discover() {
-    await domLoaded;
+    // await domLoaded;
     this.status = 'Waiting for login';
     this.user = await new Promise(resolve => {
       firebase.auth().onAuthStateChanged(user => {

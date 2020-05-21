@@ -1,0 +1,27 @@
+{
+  "name": "@dustjs/client-vue",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "prepublish": "rollup -c",
+    "build": "rollup -c",
+    "dev": "rollup -c -w",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "pretest": "npm run build"
+  },
+  "author": "Daniel Lamando",
+  "license": "MIT",
+  "devDependencies": {
+    "@vue/component-compiler": "^4.2.1",
+    "rollup": "^2.10.5",
+    "rollup-plugin-css-only": "^2.0.0",
+    "rollup-plugin-terser": "^5.3.0",
+    "rollup-plugin-vue": "^5.1.7",
+    "vue-template-compiler": "^2.6.11"
+  },
+  "dependencies": {
+    "@dustjs/client": "^0.1.2"
+  }
+}
