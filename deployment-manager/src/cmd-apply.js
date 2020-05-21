@@ -19,6 +19,7 @@ exports.builder = yargs => yargs
   .default('only', ['firebase', 'backend'])
   .default('backend-image-tag', 'latest')
   .default('deployments-dir', DUSTJS_DEPLOYMENTS_DIR)
+  .default('client-lib-dir', '/home/dan/Code/@stardustapp/dustjs/client')
   .default('apps-path', DUSTJS_APPS_PATH)
 ;
 
@@ -32,6 +33,32 @@ exports.handler = async argv => {
   } = await Loader.loadProjectConfig(process.cwd(), argv);
   console.log();
 
+  let clientLibs = new Array;
+
+  // TODO: fetch these from unpkg (cache locally?) if no checkout
+  // TODO: if checkout... then run a build?
+  if (argv.only.includes('client-library')) {
+    console.log(`==> Building @dustjs/client locally`);
+    const path = argv['client-lib-dir'];
+    const jsFile = 'dustjs-client.umd.js';
+    clientLibs.push([
+      join(path, 'dist', jsFile),
+      jsFile,
+    ]);
+    clientLibs.push([
+      join(path, 'dist', jsFile+'.map'),
+      jsFile+'.map',
+    ]);
+
+    const output = await visiblyExec(`npm`, [`run`, `build`], {
+      cwd: join(path),
+    });
+    const createdLine = output.stdout.split('\n')
+      .find(str => str.includes('created') && str.includes(jsFile));
+    console.log(`-->`, createdLine || 'rollup completed weirdly!');
+    console.log();
+  }
+
   if (argv.only.includes('firebase')) {
     console.log(`--> Preparing fresh public directory`);
     const targetDir = join('firebase', 'public-generated');
@@ -43,6 +70,27 @@ exports.handler = async argv => {
       // await visiblyExec('rm', ['-rf', webTarget]);
       await visiblyExec('cp', ['-ra', join(app.directory, 'web'), webTarget]);
     }
+
+
+    // js libraries
+    const libDir = join(targetDir, '~~', 'lib');
+    await visiblyExec('mkdir', ['-p', libDir]);
+    await visiblyExec('cp', ['-ra',
+      join(__dirname, '..', 'files', 'vendor-libs'),
+      join(libDir, 'vendor')]);
+    for (const lib of clientLibs) {
+      await visiblyExec('cp', ['-a',
+        lib[0],
+        join(libDir, lib[1])]);
+    }
+
+    // fonts
+    const fontDir = join(targetDir, '~~', 'fonts');
+    await visiblyExec('mkdir', ['-p', fontDir]);
+    await visiblyExec('cp', ['-ra',
+      join(__dirname, '..', 'files', 'vendor-fonts'),
+      join(fontDir, 'vendor')]);
+
 
     console.log(`==> ${chalk.magenta.bold('Deploying')} to Firebase Hosting...`);
     const args = ['deploy', '--only', 'hosting', '--public', 'public-generated'];

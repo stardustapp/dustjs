@@ -92,14 +92,20 @@ exports.handler = async argv => {
 
     await new Promise((resolve, reject) => {
       clientBuild.all.once('end', () => resolve(null));
-      clientBuild.all.on('data', chunk => {
-        const str = chunk.toString('utf-8');
-        // TODO: 'waiting for changes' only logged when in pty
-        if (str.includes('waiting for changes')) {
-          resolve(true);
-        } else if (str.includes('created') && str.includes(jsFile)) {
-          console.log(`   `, str.trim());
-          resolve(str);
+      clientBuild.all.on('data', async chunk => {
+        for (const str of chunk.toString('utf-8').trim().split(`\n`)) {
+          // TODO: 'waiting for changes' only logged when in pty
+          if (str.includes('waiting for changes')) {
+            resolve(true);
+          } else if (str.includes('created') && str.includes(jsFile)) {
+            console.log(`   `, chalk.magenta('rollup:'), str);
+            resolve(str);
+          } else if (str.includes('!')) {
+            if (argv['send-notifs'] && str.includes('[!]')) {
+              await execa('notify-send', ['-a', 'dust-deployer serve', 'rollup build error', str]);
+            }
+            console.log(`   `, chalk.magenta('rollup:'), str);
+          }
         }
       });
     });
@@ -130,14 +136,24 @@ exports.handler = async argv => {
         join(targetDir, app.id)]);
     }
 
-    // more
+    // js libraries
     const libDir = join(targetDir, '~~', 'lib');
     await visiblyExec('mkdir', ['-p', libDir]);
+    await visiblyExec('ln', ['-s',
+      join(__dirname, '..', 'files', 'vendor-libs'),
+      join(libDir, 'vendor')]);
     for (const lib of clientLibs) {
       await visiblyExec('ln', ['-s',
         lib[0],
         join(libDir, lib[1])]);
     }
+
+    // fonts
+    const fontDir = join(targetDir, '~~', 'fonts');
+    await visiblyExec('mkdir', ['-p', fontDir]);
+    await visiblyExec('ln', ['-s',
+      join(__dirname, '..', 'files', 'vendor-fonts'),
+      join(fontDir, 'vendor')]);
 
     console.log(`==> Starting Firebase Hosting...`);
     const args = ['serve', '--only', 'hosting'];
