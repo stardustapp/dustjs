@@ -2,9 +2,7 @@ import ignore from 'rollup-plugin-ignore';
 import { terser } from 'rollup-plugin-terser';
 import pkg from './package.json';
 
-const external = [
-  'ws', 'node-fetch',
-];
+const external = Object.keys(pkg.dependencies || {});
 
 export default [
   // browser-friendly UMD build
