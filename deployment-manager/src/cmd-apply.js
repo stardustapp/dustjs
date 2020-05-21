@@ -5,6 +5,8 @@ const yaml = require('js-yaml');
 const chalk = require('chalk');
 const execa = require('execa');
 
+const Kubernetes = require('./kubernetes.js');
+
 const {DUSTJS_DEPLOYMENTS_DIR, DUSTJS_APPS_PATH} = process.env;
 // var doc = yaml.safeLoad(fs.readFileSync('/home/ixti/example.yml', 'utf8'));
 
@@ -121,48 +123,28 @@ exports.handler = async argv => {
       kubernetes, allowed_origins, domain, env,
     } = deploymentConfig.backend_deployment;
 
-    await writeFile(join(targetDir, 'ingress.yaml'), yaml.safeDump({
-      apiVersion: 'extensions/v1beta1',
-      kind: 'Ingress',
-      metadata: {
-        name: 'api-fe',
-        annotations: kubernetes.ingressAnnotations,
-      },
-      spec: {
-        tls: [{
-          hosts: [domain],
-          secretName: 'api-tls',
-        }],
-        rules: [{
-          host: domain,
-          http: {
-            paths: [{
-              path: '/',
-              backend: {
-                serviceName: 'api',
-                servicePort: 'http',
-              }}]},
-        }]}}));
+    await writeFile(join(targetDir, 'ingress.yaml'), yaml.safeDump(Kubernetes.generateIngress({
+      serviceName: 'api',
+      annotations: kubernetes.ingressAnnotations,
+      domains: [domain],
+    })));
 
-      const {project_id, database_url, admin_uids} = deploymentConfig.authority.firebase;
-      await writeFile(join(targetDir, 'deployment-patch.yaml'), yaml.safeDump({
-        apiVersion: 'apps/v1',
-        kind: 'Deployment',
-        metadata: { name: 'api' },
-        spec: {
-          replicas: kubernetes.replicas == null ? 1 : kubernetes.replicas,
-          template: { spec: {
-            containers: [{
-              name: 'app',
-              env: [
-                { name: 'FIREBASE_PROJECT_ID', value: project_id },
-                { name: 'FIREBASE_DATABASE_URL', value: database_url },
-                { name: 'FIREBASE_ADMIN_UIDS', value: admin_uids.join(',') },
-                { name: 'SKYLINK_ALLOWED_ORIGINS', value: allowed_origins.join(',') },
-              ],
-            }],
-          }},
-        }}));
+    const {
+      project_id, database_url, admin_uids,
+    } = deploymentConfig.authority.firebase;
+
+    await writeFile(join(targetDir, 'deployment-patch.yaml'), yaml.safeDump(Kubernetes.generateDeploymentPatch('api', {
+      deployment: kubernetes.replicas == null ? {} : {
+        replicas: kubernetes.replicas,
+      },
+      container: {
+        env: [
+          { name: 'FIREBASE_PROJECT_ID', value: project_id },
+          { name: 'FIREBASE_DATABASE_URL', value: database_url },
+          { name: 'FIREBASE_ADMIN_UIDS', value: admin_uids.join(',') },
+          { name: 'SKYLINK_ALLOWED_ORIGINS', value: allowed_origins.join(',') },
+        ],
+      }})));
 
     await writeFile(join(targetDir, 'kustomization.yaml'), yaml.safeDump({
       commonLabels: kubernetes.labels,
@@ -215,51 +197,19 @@ exports.handler = async argv => {
       // const kustomized = await visiblyExec('kustomize', ['build', targetDir]);
       // console.log(kustomized.stdout);
       console.log(`==> ${chalk.magenta.bold('Deploying')} to Kubernetes...`);
-      const kustomized = await visiblyExec('kubectl', ['--context='+kubernetes.context, 'apply', '-k', targetDir]);
+      const kustomized = await visiblyExecWithSpecificRetry('kubectl', ['--context='+kubernetes.context, 'apply', '-k', targetDir]);
     } finally {
       await visiblyExec('rm', ['-rf', targetDir]);
     }
 
-    console.log(`--> Waiting for deployment to stabilize`);
-    const labelStr = Object.keys(kubernetes.labels)
-      .map(x => `${x}=${kubernetes.labels[x]}`)
-      .join(',');
+    const kubectl = new Kubernetes.Client(kubernetes.context, kubernetes.namespace);
 
-    const seenPods = new Map;
-    while (true) {
-      await new Promise(r => setTimeout(r, 5000));
-      const {stdout} = await execa(`kubectl`, ['--context='+kubernetes.context, '-n', kubernetes.namespace, 'get', 'pods', '-l', labelStr]);
-      const badLines = stdout.split(`\n`).filter(x => {
-        if (x.startsWith('NAME')) return false;
-        const [_, ready, total] = x.match(/ (\d+)\/(\d+) /);
-        if (ready !== total) return true;
-        if (!x.includes(' Running ')) return true;
-        return false;
-      });
-      if (badLines.length === 0) {
-        console.log(`==> ${chalk.green.bold('Backend looks good!')} Yay :)`);
-        break;
-      } else {
-        for (const line of badLines) {
-          const [name, ready, status, restarts, age] = line.split(/ +/);
-          const healthStr = [ready,status,restarts].join(',');
-          if (seenPods.get(name) === healthStr) continue;
-          seenPods.set(name, healthStr);
-          let statusStr = chalk[{
-            Pending: 'cyan',
-            ContainerCreating: 'cyan',
-            Running: 'green',
-            Terminating: 'yellow',
-          }[status]||'red'](status);
-          statusStr += ` (${ready} ready`;
-          if (restarts !== '0') {
-            statusStr += `, ${chalk.red(restarts+' restarts')}`;
-          }
-          statusStr += `, ${chalk.bold(age)} old)`;
-          console.log('   ', chalk.cyan(name), 'is now', statusStr);
-        }
-      }
-    }
+    console.log(`--> Waiting for deployment to stabilize`);
+    const finalPods = await kubectl
+      .pollForPodStability(kubernetes.labels);
+    const podS = finalPods.length === 1 ? '' : 's';
+    const verb = finalPods.length === 1 ? 'is' : 'are';
+    console.log(`==> ${chalk.green.bold('Backend looks good!')} ${chalk.green(`${finalPods.length} pod${podS}`)} ${verb} in service. :)`);
     console.log();
   }
 }
@@ -267,6 +217,18 @@ exports.handler = async argv => {
 async function writeFile(path, contents) {
   console.log(`    ${chalk.gray.bold('cat')} ${chalk.gray(`> ${path}`)}`);
   await fs.writeFile(path, contents, 'utf-8');
+}
+
+async function visiblyExecWithSpecificRetry(...stuff) {
+  try {
+    return await visiblyExec(...stuff);
+  } catch (err) {
+    if (err.stderr && err.stderr.includes('context deadline exceeded')) {
+      console.log('    control plane connection issue, retrying once');
+      return await visiblyExec(...stuff);
+    }
+    throw err;
+  }
 }
 
 async function visiblyExec(cmd, args, ...more) {

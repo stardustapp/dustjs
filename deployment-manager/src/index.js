@@ -1,6 +1,8 @@
 const yargs = require('yargs');
 
 exports.runCli = () => yargs
+  // The 'chalk' library checks for these directly
+  // Just including here for help purposes
   .option('color')
   .describe('color', 'Enable colorful output (default)')
   .option('no-color')
