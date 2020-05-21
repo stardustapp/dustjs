@@ -1,6 +1,8 @@
-const {InflateSkylinkLiteral, DeflateToSkylinkLiteral} = require('./api/entries/');
+import {
+  InflateSkylinkLiteral, DeflateToSkylinkLiteral,
+} from './api/entries/index.js';
 
-class SkylinkClient {
+export class SkylinkClient {
   constructor() {
     // extension points
     this.outputDecoders = new Array;
@@ -61,7 +63,3 @@ class SkylinkClient {
     this.processFrame(this.decodeOutput(frame));
   }
 }
-
-module.exports = {
-  SkylinkClient,
-};

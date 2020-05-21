@@ -1,7 +1,7 @@
 // Used to represent raw devices being passed around within a process
 // Not network transparent!
 
-class DeviceEntry {
+export class DeviceEntry {
   constructor(name, device) {
     this.Name = name;
     this.Type = 'Device';
@@ -19,4 +19,3 @@ class DeviceEntry {
     return `<Device ${JSON.stringify(this.Name)} impl=${this._device.constructor.name}>`;
   }
 }
-exports.DeviceEntry = DeviceEntry;

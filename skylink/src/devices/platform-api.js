@@ -1,11 +1,12 @@
 // TODO: this is its own thing that doesn't really fit the other devices
 // should probably use a builder pattern instead of double-duty
 
-const {FolderEntry, StringEntry} = require('../api/entries/');
-const {FlatEnumerable} = require('../api/enumeration.js');
-const {Environment} = require('../api/environment.js');
+import {FolderEntry} from '../api/entries/FolderEntry.js';
+import {StringEntry} from '../api/entries/StringEntry.js';
+import {FlatEnumerable} from '../api/enumeration.js';
+import {Environment} from '../api/environment.js';
 
-class PlatformApi {
+export class PlatformApi {
   constructor(name) {
     this.name = name;
     this.paths = new Map;
@@ -72,7 +73,7 @@ class PlatformApi {
   }
 }
 
-class PlatformApiGetter {
+export class PlatformApiGetter {
   constructor(self, name, type, impl) {
     this.self = self;
     this.type = PlatformApiType.from(type, name);
@@ -90,7 +91,7 @@ class PlatformApiGetter {
   }
 }
 
-class PlatformApiFunction {
+export class PlatformApiFunction {
   constructor(self, name, {input, output, impl}) {
     this.self = self;
     this.inputType = PlatformApiType.from(input, 'input');
@@ -122,7 +123,7 @@ class PlatformApiFunction {
   }
 }
 
-class ExtendableError extends Error {
+export class ExtendableError extends Error {
   constructor(message) {
     super(message);
     this.name = this.constructor.name;
@@ -134,7 +135,7 @@ class ExtendableError extends Error {
   }
 }
 
-class PlatformTypeError extends ExtendableError {
+export class PlatformTypeError extends ExtendableError {
   constructor(fieldName, expectedType, actualType) {
     super(`API field ${JSON.stringify(fieldName)} is supposed to be type ${expectedType} but was actually ${actualType}`);
     this.fieldName = fieldName;
@@ -143,7 +144,7 @@ class PlatformTypeError extends ExtendableError {
   }
 }
 
-class PlatformApiTypeString {
+export class PlatformApiTypeString {
   constructor(name, defaultValue=null, ser=String, de=String) {
     this.name = name;
     this.type = 'String';
@@ -168,7 +169,7 @@ class PlatformApiTypeString {
   }
 }
 
-class PlatformApiTypeNull {
+export class PlatformApiTypeNull {
   constructor(name) {
     this.name = name;
     this.type = 'Null';
@@ -186,7 +187,7 @@ class PlatformApiTypeNull {
 }
 
 // Never put this on the network, it's a no-op, only for intra-process message passing.
-class PlatformApiTypeJs {
+export class PlatformApiTypeJs {
   constructor(name) {
     this.name = name;
     this.type = 'JS';
@@ -199,7 +200,7 @@ class PlatformApiTypeJs {
   }
 }
 
-class PlatformApiTypeFolder {
+export class PlatformApiTypeFolder {
   constructor(name, fields=[]) {
     this.name = name;
     this.type = 'Folder';
@@ -237,7 +238,7 @@ class PlatformApiTypeFolder {
   }
 }
 
-class PlatformApiType {
+export class PlatformApiType {
   static from(source, name) {
     if (source == null)
       return new PlatformApiTypeNull(name);
@@ -292,18 +293,3 @@ class PlatformApiType {
     }
   }
 }
-
-module.exports = {
-  PlatformApi,
-  PlatformApiGetter,
-  PlatformApiFunction,
-
-  ExtendableError,
-  PlatformTypeError,
-
-  PlatformApiTypeString,
-  PlatformApiTypeNull,
-  PlatformApiTypeJs,
-  PlatformApiTypeFolder,
-  PlatformApiType,
-};

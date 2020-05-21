@@ -1,6 +1,6 @@
-const {Channel} = require('../api/channel.js');
-const {StringEntry} = require('../api/entries/');
-const {FunctionDevice} = require('../devices/function-device.js');
+import {Channel} from '../api/channel.js';
+import {StringEntry} from '../api/entries/StringEntry.js';
+import {FunctionDevice} from '../devices/function-device.js';
 
 let allOpenChannels = 0;
 // const metricsClock = setInterval(() => {
@@ -11,7 +11,7 @@ let allOpenChannels = 0;
 // }
 
 // for the server
-class ChannelExtension {
+export class ChannelExtension {
   constructor() {
     this.channels = new Map;
     this.nextChan = 1;
@@ -84,7 +84,7 @@ class ChannelExtension {
 // Attaches a 'Chan' field to responses when they pertain to a channel.
 // The client gets packets over the original connection and use 'Chan' to differentiate them.
 // TODO: switch to a 'Channel' Type (e.g. support channels within folders)
-class InlineChannelCarrier {
+export class InlineChannelCarrier {
   constructor(sendCb) {
     if (sendCb) throw new Error(
       `TODO: InlineChannelCarrier no longer accepts a sendCb`);
@@ -117,8 +117,3 @@ class InlineChannelCarrier {
     }, () => {/* already handled */});
   }
 }
-
-module.exports = {
-  ChannelExtension,
-  InlineChannelCarrier,
-};

@@ -1,9 +1,9 @@
-const {SkylinkClient} = require('../client.js');
-const {InlineChannelClient} = require('./channel-client.js');
-const {DeviceEntry} = require('../api/entries/DeviceEntry.js');
-const {SkylinkClientDevice} = require('../devices/skylink-client-device.js');
+import {SkylinkClient} from '../client.js';
+import {InlineChannelClient} from './channel-client.js';
+import {DeviceEntry} from '../api/entries/DeviceEntry.js';
+import {SkylinkClientDevice} from '../devices/skylink-client-device.js';
 
-class ReversedSkylinkClient extends SkylinkClient {
+export class ReversedSkylinkClient extends SkylinkClient {
   constructor(extensions=[]) {
     super();
 
@@ -52,7 +52,3 @@ class ReversedSkylinkClient extends SkylinkClient {
     }
   }
 }
-
-module.exports = {
-  ReversedSkylinkClient,
-};

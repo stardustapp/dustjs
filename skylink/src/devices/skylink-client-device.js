@@ -1,7 +1,7 @@
-const { StatelessHttpSkylinkClient } = require('../client-http.js');
-const { WebsocketSkylinkClient } = require('../client-websocket.js');
+import { StatelessHttpSkylinkClient } from '../client-http.js';
+import { WebsocketSkylinkClient } from '../client-websocket.js';
 
-class SkylinkClientDevice {
+export class SkylinkClientDevice {
   constructor(remote, pathPrefix) {
     this.remote = remote;
     this.pathPrefix = pathPrefix;
@@ -55,7 +55,7 @@ class SkylinkClientDevice {
   }
 }
 
-class SkylinkClientEntry {
+export class SkylinkClientEntry {
   constructor(remote, path) {
     this.remote = remote;
     this.path = path;
@@ -155,8 +155,3 @@ class SkylinkClientEntry {
     });
   }
 }
-
-module.exports = {
-  SkylinkClientDevice,
-  SkylinkClientEntry,
-};

@@ -1,7 +1,10 @@
-const {FolderEntry, StringEntry} = require('./api/entries/');
-const {EnumerationWriter, EnumerateIntoSubscription} = require('./api/enumeration.js');
+import {FolderEntry} from './api/entries/FolderEntry.js';
+import {StringEntry} from './api/entries/StringEntry.js';
+import {
+  EnumerationWriter, EnumerateIntoSubscription,
+} from './api/enumeration.js';
 
-const CoreOpsMap = new Map;
+export const CoreOpsMap = new Map;
 
 CoreOpsMap.set('ping', () => null);
 
@@ -138,7 +141,3 @@ CoreOpsMap.set('invoke', async function invoke(request) {
     throw new Error(`Output of ${Path} isn't gettable, please use Dest`);
   }
 });
-
-module.exports = {
-  CoreOpsMap,
-};

@@ -1,4 +1,4 @@
-class TempDevice {
+export class TempDevice {
   constructor(opts) {
     this.entries = new Map();
   }
@@ -8,7 +8,7 @@ class TempDevice {
   }
 }
 
-class TempEntry {
+export class TempEntry {
   constructor(mount, path) {
     this.mount = mount;
     this.path = path;
@@ -80,8 +80,3 @@ class TempEntry {
 //     return this.mount.bind(this.path, value);
 //   }
 // }
-
-module.exports = {
-  TempDevice,
-  TempEntry,
-};

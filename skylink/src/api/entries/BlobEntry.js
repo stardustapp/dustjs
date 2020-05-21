@@ -1,4 +1,4 @@
-class BlobEntry {
+export class BlobEntry {
   constructor(name, base64, mime) {
     this.Name = name;
     this.Type = 'Blob';
@@ -22,4 +22,3 @@ class BlobEntry {
     return `<Blob ${JSON.stringify(this.Name)} ${JSON.stringify(this.Mime)}>`;
   }
 }
-exports.BlobEntry = BlobEntry;

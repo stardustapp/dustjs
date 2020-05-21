@@ -1,15 +1,16 @@
-const entries = {
-  ...require('./BlobEntry.js'),
-  ...require('./DeviceEntry.js'),
-  ...require('./FolderEntry.js'),
-  ...require('./StringEntry.js'),
-  ...require('./ErrorEntry.js'),
-};
+export {BlobEntry} from './BlobEntry.js';
+export {DeviceEntry} from './DeviceEntry.js';
+export {FolderEntry} from './FolderEntry.js';
+export {StringEntry} from './StringEntry.js';
+export {ErrorEntry} from './ErrorEntry.js';
 
 // TODO: better browser-ready source of error origin info
-const errorAuthority = require('os').hostname();
+const errorAuthority =
+  (typeof require === 'function')
+  ? require('os').hostname()
+  : 'module'
 
-function InflateSkylinkLiteral(raw, extraInflaters=null) {
+export function InflateSkylinkLiteral(raw, extraInflaters=null) {
   if (!raw) return null;
 
   if (raw.constructor !== Object) throw new Error(
@@ -19,22 +20,22 @@ function InflateSkylinkLiteral(raw, extraInflaters=null) {
   switch (raw.Type) {
 
     case 'String':
-      return new entries.StringEntry(raw.Name || '', raw.StringValue);
+      return new StringEntry(raw.Name || '', raw.StringValue);
 
     case 'Folder':
-      return new entries.FolderEntry(raw.Name || '', (raw.Children || [])
+      return new FolderEntry(raw.Name || '', (raw.Children || [])
         .map(child => InflateSkylinkLiteral(child, extraInflaters)));
 
     case 'Blob':
-      return new entries.BlobEntry(raw.Name || '', raw.Data, raw.Mime);
+      return new BlobEntry(raw.Name || '', raw.Data, raw.Mime);
 
     case 'Error':
-      return new entries.ErrorEntry(raw.Name || '', raw.Code, raw.Authority, raw.StringValue);
+      return new ErrorEntry(raw.Name || '', raw.Code, raw.Authority, raw.StringValue);
 
     // TODO: proper class (maybe even with a callable?)
     case 'Function':
       return raw;
-      // return new entries.FunctionEntry(raw.Name || '');
+      // return new FunctionEntry(raw.Name || '');
 
     // case 'JS':
     //   return raw.Data;
@@ -48,11 +49,11 @@ function InflateSkylinkLiteral(raw, extraInflaters=null) {
       }
 
       console.log('WARN: inflater saw unhandled Type in', raw);
-      return new entries.ErrorEntry(raw.Name || '', 'unimpl-type', 'skylink/inflate@'+errorAuthority, `Skylink literal had unimpl Type ${raw.Type}, cannot deflate`);
+      return new ErrorEntry(raw.Name || '', 'unimpl-type', 'skylink/inflate@'+errorAuthority, `Skylink literal had unimpl Type ${raw.Type}, cannot deflate`);
   }
 };
 
-function DeflateToSkylinkLiteral(entry, extraDeflaters=null) {
+export function DeflateToSkylinkLiteral(entry, extraDeflaters=null) {
   if (!entry) return null;
 
   if (typeof entry.Type !== 'string') throw new Error(
@@ -109,10 +110,4 @@ function DeflateToSkylinkLiteral(entry, extraDeflaters=null) {
       }
       throw new Error(`skylink entry had unimpl Type ${entry.Type}`);
   }
-};
-
-module.exports = {
-  ...entries,
-  InflateSkylinkLiteral,
-  DeflateToSkylinkLiteral,
 };

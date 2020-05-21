@@ -1,7 +1,5 @@
-module.exports = {
-  ...require('./entries/'),
-  ...require('./environment.js'),
-  ...require('./channel.js'),
-  ...require('./enumeration.js'),
-  ...require('./path-fragment.js'),
-};
+export * from './entries/index.js';
+export * from './environment.js';
+export * from './channel.js';
+export * from './enumeration.js';
+export * from './path-fragment.js';

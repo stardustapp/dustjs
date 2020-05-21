@@ -1,9 +1,9 @@
-const {PathFragment} = require('../api/path-fragment.js');
-const {StringEntry} = require('../api/entries/');
+import {PathFragment} from '../api/path-fragment.js';
+import {StringEntry} from '../api/entries/StringEntry.js';
 
 // Read-only Device that just lets you poke at an Entry or skylink literal
 // Most useful with Folder entries but also works with strings etc
-class LiteralDevice {
+export class LiteralDevice {
   constructor(literal) {
     this.rootLiteral = literal;
   }
@@ -40,7 +40,7 @@ class LiteralDevice {
   }
 }
 
-class LiteralEntry {
+export class LiteralEntry {
   constructor(literal) {
     this.literal = literal;
   }
@@ -64,8 +64,3 @@ class LiteralEntry {
     }
   }
 }
-
-module.exports = {
-  LiteralDevice,
-  LiteralEntry,
-};

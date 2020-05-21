@@ -1,8 +1,6 @@
-module.exports = {
-  ...require('./channel-client.js'),
-  ...require('./channel-messageport.js'),
-  ...require('./channel-server.js'),
+export * from './channel-client.js';
+export * from './channel-messageport.js';
+export * from './channel-server.js';
 
-  ...require('./reversal-client.js'),
-  ...require('./reversal-server.js'),
-};
+export * from './reversal-client.js';
+export * from './reversal-server.js';

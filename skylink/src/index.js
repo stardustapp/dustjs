@@ -1,12 +1,10 @@
-module.exports = {
-  ...require('./api/'),
-  ...require('./devices/'),
-  ...require('./extensions/'),
+export * from './api/index.js';
+export * from './devices/index.js';
+export * from './extensions/index.js';
 
-  ...require('./client.js'),
-  ...require('./client-http.js'),
-  ...require('./client-messageport.js'),
-  ...require('./client-websocket.js'),
-  ...require('./core-ops.js'),
-  ...require('./server.js'),
-};
+export * from './client.js';
+export * from './client-http.js';
+export * from './client-messageport.js';
+export * from './client-websocket.js';
+export * from './core-ops.js';
+export * from './server.js';

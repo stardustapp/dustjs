@@ -1,12 +1,12 @@
-const {Environment} = require('../api/environment.js');
-const {SkylinkServer} = require('../server.js');
+import {Environment} from '../api/environment.js';
+import {SkylinkServer} from '../server.js';
 
 // Lets a SkylinkClient process server-sent operations inband via a SkylinkServer
 // Effectively gives you get full-duplex request/response
 // Setting up bidirectional inband channels via reversal works normally :)
 // Implemented by checking for 'Op' presence on each frame and redirecting those frames to a virtual 'server' for handling
 
-class SkylinkReversalExtension {
+export class SkylinkReversalExtension {
   constructor(extensions=[]) {
     this.extensions = extensions;
 
@@ -54,7 +54,3 @@ class SkylinkReversalExtension {
       .receiveFrame(frame);
   }
 }
-
-module.exports = {
-  SkylinkReversalExtension,
-};

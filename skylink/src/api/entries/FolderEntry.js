@@ -1,4 +1,4 @@
-class FolderEntry {
+export class FolderEntry {
   constructor(name, children) {
     this.Name = name;
     this.Type = 'Folder';
@@ -30,4 +30,3 @@ class FolderEntry {
     return `<Folder ${JSON.stringify(this.Name)} [${childStr}]>`;
   }
 }
-exports.FolderEntry = FolderEntry;

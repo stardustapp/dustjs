@@ -1,9 +1,7 @@
-const util = require('util');
-
-const {FolderEntry} = require('./entries/');
-const {PathFragment} = require('./path-fragment.js');
-const {FunctionDevice} = require('../devices/function-device.js');
-const {LiteralDevice} = require('../devices/literal-device.js');
+import {FolderEntry} from './entries/FolderEntry.js';
+import {PathFragment} from './path-fragment.js';
+import {FunctionDevice} from '../devices/function-device.js';
+import {LiteralDevice} from '../devices/literal-device.js';
 
 // An environment maintains one mount table, similar to a plan9 namespace
 // Generally one Environment is equivilent to one HTTP Origin
@@ -14,7 +12,7 @@ const {LiteralDevice} = require('../devices/literal-device.js');
 // - Future bind() calls cascade _down_ the selectPath() tree, but not up.
 // - You can never walk out of any Environment, so this also works for access scoping.
 
-class Environment {
+export class Environment {
   constructor(baseUri='env:') {
     this.baseUri = baseUri;
     this.devices = new Map;
@@ -130,14 +128,14 @@ class Environment {
     return entry;
   }
 
-  [util.inspect.custom]() {
+  [Symbol.for("nodejs.util.inspect.custom")]() {
     const mountNames = new Array();
     this.devices.forEach((_, key) => mountNames.push(key));
     return `<Environment [${mountNames.join(' ')}]>`;
   }
 };
 
-class ChildEnvironment extends Environment {
+export class ChildEnvironment extends Environment {
   constructor(parent, selfPath) {
     super(parent.baseUri + selfPath);
 
@@ -178,7 +176,7 @@ class ChildEnvironment extends Environment {
 }
 
 // Returns fake container entries that lets the user find the actual content
-class VirtualEnvEntry {
+export class VirtualEnvEntry {
   constructor(env, path) {
     console.log('Constructing virtual entry for', path);
     this.env = env;
@@ -277,9 +275,3 @@ class VirtualEnvEntry {
     }
   }
 }
-
-module.exports = {
-  Environment,
-  ChildEnvironment,
-  VirtualEnvEntry,
-};

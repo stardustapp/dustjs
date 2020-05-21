@@ -1,11 +1,9 @@
-module.exports = {
-  // inmemory constructs
-  ...require('./platform-api.js'),
-  ...require('./temp-device.js'),
-  ...require('./literal-device.js'),
-  ...require('./function-device.js'),
+// inmemory constructs
+export * from './platform-api.js';
+export * from './temp-device.js';
+export * from './literal-device.js';
+export * from './function-device.js';
 
-  // system I/O
-  ...require('./filesystem-device.js'),
-  ...require('./skylink-client-device.js'),
-};
+// system I/O
+export * from './filesystem-device.js';
+export * from './skylink-client-device.js';

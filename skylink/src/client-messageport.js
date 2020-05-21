@@ -1,4 +1,4 @@
-const {SkylinkClient} = require('./client.js');
+import {SkylinkClient} from './client.js';
 
 // Used for WebWorkers and such
 // You pass received frames to receiveFrame() and impl sendFrame()
@@ -6,7 +6,7 @@ const {SkylinkClient} = require('./client.js');
 // IDs are attached to each message, so it's not lockstep
 // You can have a Client & Server on both sides via the Reversal extension
 
-class MessagePassingSkylinkClient extends SkylinkClient {
+export class MessagePassingSkylinkClient extends SkylinkClient {
   constructor(eventObj) {
     super();
 
@@ -53,7 +53,3 @@ class MessagePassingSkylinkClient extends SkylinkClient {
     }
   }
 }
-
-module.exports = {
-  MessagePassingSkylinkClient,
-};

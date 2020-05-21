@@ -1,8 +1,8 @@
-const {Channel} = require('../api/channel.js');
+import {Channel} from '../api/channel.js';
 
 // Attaches a 'Chan' field to responses when they pertain to a channel.
 // A MessagePort is attached which will be used for the channel's packets
-class MessagePortChannelCarrier {
+export class MessagePortChannelCarrier {
   constructor() {}
 
   attachTo(skylink) {
@@ -36,7 +36,7 @@ class MessagePortChannelCarrier {
 }
 
 // Detects a 'Chan' field on normal responses and reroutes them to Channel objects
-class MessagePortChannelClient {
+export class MessagePortChannelClient {
   constructor() {
     this.channels = new Map;
   }
@@ -78,8 +78,3 @@ class MessagePortChannelClient {
     this.channels.clear();
   }
 }
-
-module.exports = {
-  MessagePortChannelCarrier,
-  MessagePortChannelClient,
-};

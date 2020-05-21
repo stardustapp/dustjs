@@ -1,4 +1,4 @@
-class StringEntry {
+export class StringEntry {
   constructor(name, value) {
     this.Name = name;
     this.Type = 'String';
@@ -17,4 +17,3 @@ class StringEntry {
     return `<String ${JSON.stringify(this.Name)} ${JSON.stringify(this.StringValue)}>`;
   }
 }
-exports.StringEntry = StringEntry;

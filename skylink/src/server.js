@@ -1,7 +1,9 @@
-const {CoreOpsMap} = require('./core-ops.js');
-const {InflateSkylinkLiteral, DeflateToSkylinkLiteral} = require('./api/entries/');
+import {CoreOpsMap} from './core-ops.js';
+import {
+  InflateSkylinkLiteral, DeflateToSkylinkLiteral,
+} from './api/entries/index.js';
 
-class SkylinkServer {
+export class SkylinkServer {
   constructor(env, postMessage=null) {
     this.env = env;
     this.postMessage = postMessage;
@@ -138,10 +140,4 @@ class SkylinkServer {
       throw new Error(`Server doesn't implement ${request.Op} operation`);
     }
   }
-}
-
-if (typeof module !== 'undefined') {
-  module.exports = {
-    SkylinkServer,
-  };
 }

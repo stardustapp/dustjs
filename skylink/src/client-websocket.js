@@ -1,8 +1,8 @@
-const WebSocket = require('ws');
-const {SkylinkClient} = require('./client.js');
-const {InlineChannelClient} = require('./extensions/channel-client.js');
+import WebSocket from 'ws';
+import {SkylinkClient} from './client.js';
+import {InlineChannelClient} from './extensions/channel-client.js';
 
-class WebsocketSkylinkClient extends SkylinkClient {
+export class WebsocketSkylinkClient extends SkylinkClient {
   constructor(endpoint) {
     super();
     this.endpoint = endpoint;
@@ -102,7 +102,3 @@ class WebsocketSkylinkClient extends SkylinkClient {
     },
   };*/
 }
-
-module.exports = {
-  WebsocketSkylinkClient,
-};

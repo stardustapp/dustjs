@@ -1,8 +1,8 @@
-const {Channel} = require('../api/channel.js');
-const {InflateSkylinkLiteral} = require('../api/entries/');
+import {Channel} from '../api/channel.js';
+import {InflateSkylinkLiteral} from '../api/entries/index.js';
 
 // Detects a 'Chan' field on normal responses and reroutes them to Channel objects
-class InlineChannelClient {
+export class InlineChannelClient {
   constructor(sendCb) {
     this.sendCb = sendCb;
     this.channels = new Map;
@@ -67,7 +67,3 @@ class InlineChannelClient {
     this.channels.clear();
   }
 }
-
-module.exports = {
-  InlineChannelClient,
-};

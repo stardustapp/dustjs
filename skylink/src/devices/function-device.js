@@ -1,4 +1,4 @@
-class FunctionDevice {
+export class FunctionDevice {
   constructor({invoke}) {
     this.invokeCb = invoke;
   }
@@ -30,7 +30,3 @@ class FunctionDevice {
     }
   }
 }
-
-module.exports = {
-  FunctionDevice,
-};

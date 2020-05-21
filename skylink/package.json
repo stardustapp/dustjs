@@ -1,15 +1,30 @@
 {
   "name": "@dustjs/skylink",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "description": "Defines a common implemention of the Skylink protocol for the Stardust project.",
-  "main": "src/index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
   "author": "Daniel Lamando",
   "license": "MIT",
+  "type": "module",
+  "main": "./dist/dustjs-skylink.cjs",
+  "module": "./src/index.js",
+  "exports": {
+    "require": "./dist/dustjs-skylink.cjs",
+    "import": "./src/index.js"
+  },
+  "browser": "./dist/dustjs-skylink.umd.js",
+  "scripts": {
+    "build": "rollup -c",
+    "dev": "rollup -c -w",
+    "pretest": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
   "dependencies": {
     "node-fetch": "^2.6.0",
     "ws": "^7.2.3"
+  },
+  "devDependencies": {
+    "rollup": "^2.10.5",
+    "rollup-plugin-ignore": "^1.0.5",
+    "rollup-plugin-terser": "^5.3.0"
   }
 }

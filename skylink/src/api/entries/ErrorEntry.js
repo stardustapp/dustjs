@@ -1,4 +1,4 @@
-class ErrorEntry {
+export class ErrorEntry {
   constructor(name, code, authority, message) {
     this.Name = name;
     this.Type = 'Error';
@@ -18,4 +18,3 @@ class ErrorEntry {
     return `<Error ${JSON.stringify(this.Name)} ${JSON.stringify(this.Code)} ${JSON.stringify(this.Authority)} ${JSON.stringify(this.StringValue)}>`;
   }
 }
-exports.ErrorEntry = ErrorEntry;

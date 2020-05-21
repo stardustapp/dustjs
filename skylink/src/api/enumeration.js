@@ -1,6 +1,7 @@
-const {FolderEntry, StringEntry, ErrorEntry} = require('./entries/');
+import {FolderEntry} from './entries/FolderEntry.js';
+import {StringEntry} from './entries/StringEntry.js';
 
-class EnumerationWriter {
+export class EnumerationWriter {
   constructor(depth) {
     this.depth = depth;
     this.entries = []; // log of nodes we've visited
@@ -90,7 +91,7 @@ class EnumerationWriter {
 // Provides a shitty yet complete non-reactive subscription
 // Gets its data from the provided enumeration lambda
 // Shuts down the channel when it's down as a signal downstream
-function EnumerateIntoSubscription(enumHandler, depth, newChannel) {
+export function EnumerateIntoSubscription(enumHandler, depth, newChannel) {
   return newChannel.invoke(async c => {
     const enumer = new EnumerationWriter(depth);
     const enumeration = await enumHandler(enumer);
@@ -111,7 +112,7 @@ function EnumerateIntoSubscription(enumHandler, depth, newChannel) {
   });
 }
 
-class FlatEnumerable {
+export class FlatEnumerable {
   constructor(...things) {
     this.list = things.slice(0);
   }
@@ -134,9 +135,3 @@ class FlatEnumerable {
     }
   }
 }
-
-module.exports = {
-  EnumerationWriter,
-  EnumerateIntoSubscription,
-  FlatEnumerable,
-};

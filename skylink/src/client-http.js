@@ -1,7 +1,7 @@
-const fetch = require('node-fetch');
-const {SkylinkClient} = require('./client.js');
+import fetch from 'node-fetch';
+import {SkylinkClient} from './client.js';
 
-class StatelessHttpSkylinkClient extends SkylinkClient {
+export class StatelessHttpSkylinkClient extends SkylinkClient {
   constructor(endpoint) {
     super();
     this.endpoint = endpoint;
@@ -22,7 +22,3 @@ class StatelessHttpSkylinkClient extends SkylinkClient {
     return resp.json();
   }
 }
-
-module.exports = {
-  StatelessHttpSkylinkClient,
-};

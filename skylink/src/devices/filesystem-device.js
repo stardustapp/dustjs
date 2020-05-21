@@ -1,7 +1,7 @@
-const path = require('path');
-const fs = require('fs').promises;
+import path from 'path';
+import fs from 'fs/promises';
 
-class FilesystemDevice {
+export class FilesystemDevice {
   constructor(fsRootPath) {
     this.fsRoot = path.resolve(fsRootPath);
   }
@@ -22,7 +22,7 @@ class FilesystemDevice {
   }
 }
 
-class FilesystemEntry {
+export class FilesystemEntry {
   constructor(fsPath) {
     this.fsPath = fsPath;
   }
@@ -50,8 +50,3 @@ class FilesystemEntry {
   // async enumerate(enumer) {
   // }
 }
-
-module.exports = {
-  FilesystemDevice,
-  FilesystemEntry,
-};

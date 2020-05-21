@@ -3,7 +3,7 @@
 // A 'path' is a string of slash-seperated parts.
 // Paths can be absolute, meaning they have a preceding slash.
 
-class PathFragment {
+export class PathFragment {
   constructor(isAbsolute, parts=[]) {
     if (typeof isAbsolute !== 'boolean') throw new Error(
       `PathFragment takes isAbsolute bool as the first param`);
@@ -233,7 +233,3 @@ class PathFragment {
     return (this.isAbsolute ? '/' : '') + this.parts.join('/');
   }
 }
-
-module.exports = {
-  PathFragment,
-};
