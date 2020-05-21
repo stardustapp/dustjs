@@ -74,14 +74,8 @@ exports.handler = async argv => {
     console.log(`==> Preparing @dustjs/client livecompile`);
     const path = argv['client-lib-dir'];
     const jsFile = 'dustjs-client.umd.js';
-    clientLibs.push([
-      join(path, 'dist', jsFile),
-      jsFile,
-    ]);
-    clientLibs.push([
-      join(path, 'dist', jsFile+'.map'),
-      jsFile+'.map',
-    ]);
+    clientLibs.push(join(path, 'dist', jsFile));
+    clientLibs.push(join(path, 'dist', jsFile+'.map'));
 
     const args = ['run', 'dev'];
     console.log(`    ${chalk.gray.bold('npm')} ${chalk.gray(args.join(' '))}`);
@@ -144,11 +138,11 @@ exports.handler = async argv => {
     await visiblyExec('ln', ['-s',
       join(__dirname, '..', 'files', 'vendor-libs'),
       join(libDir, 'vendor')]);
-    for (const lib of clientLibs) {
-      await visiblyExec('ln', ['-s',
-        lib[0],
-        join(libDir, lib[1])]);
-    }
+
+    // link all the dynamic libs in one command
+    await visiblyExec('ln', ['-s',
+      ...clientLibs,
+      libDir+'/']);
 
     // fonts
     const fontDir = join(targetDir, '~~', 'fonts');
@@ -177,7 +171,7 @@ exports.handler = async argv => {
           resolve(str.match(/http[:\/a-z0-9\[\]-]+/i)[0]);
         } else if (match) {
           const [_, verb, path, proto, status, size] = match;
-          if (status === '200' && path.includes('__')) {
+          if (status === '200' && (path.startsWith('/~~') ||  path.startsWith('/__'))) {
             console.log(`   `, chalk.gray(`${verb} ${path} ${status}`));
           } else {
             const statusColor = {'2': 'green', '3': 'cyan', '4': 'yellow', '5': 'red'}[status[0]] || 'cyan';
