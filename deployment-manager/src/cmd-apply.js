@@ -78,8 +78,8 @@ exports.handler = async argv => {
     console.log(`--> Preparing backend kustomization`);
     const targetDir = (await visiblyExec(`mktemp`, ['-d'])).stdout;
 
-    await visiblyExec('cp', [join(__dirname, '..', 'kustomize-skeletons', 'deployment.yaml'), targetDir]);
-    await visiblyExec('cp', [join(__dirname, '..', 'kustomize-skeletons', 'service.yaml'), targetDir]);
+    await visiblyExec('cp', [join(__dirname, '..', 'files', 'kustomize-skeletons', 'deployment.yaml'), targetDir]);
+    await visiblyExec('cp', [join(__dirname, '..', 'files', 'kustomize-skeletons', 'service.yaml'), targetDir]);
 
     const {
       kubernetes, allowed_origins, domain, env,
