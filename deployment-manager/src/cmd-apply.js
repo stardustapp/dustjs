@@ -6,15 +6,12 @@ const chalk = require('chalk');
 const execa = require('execa');
 
 const Loader = require('./loader.js');
+const Runner = require('./runner.js');
 const Kubernetes = require('./kubernetes.js');
 
 const {DUSTJS_DEPLOYMENTS_DIR, DUSTJS_APPS_PATH} = process.env;
 
 exports.builder = yargs => yargs
-  // .positional('port', {
-  //   describe: 'port to bind on',
-  //   default: 5000
-  // })
   .array('only')
   .default('only', ['firebase', 'backend'])
   .default('backend-image-tag', 'latest')
@@ -25,6 +22,8 @@ exports.builder = yargs => yargs
 ;
 
 exports.handler = async argv => {
+  const runner = new Runner();
+
   // console.log('input:', argv);
   console.log();
   const {
@@ -45,7 +44,7 @@ exports.handler = async argv => {
     clientLibs.push(join(path, 'dist', jsFile));
     clientLibs.push(join(path, 'dist', jsFile+'.map'));
 
-    const output = await visiblyExec(`npm`, [`run`, `build`], {
+    const output = await runner.execUtility(`npm`, [`run`, `build`], {
       cwd: join(path),
     });
     const createdLine = output.stdout.split('\n')
@@ -62,7 +61,7 @@ exports.handler = async argv => {
     const cssFile = 'dustjs-client-vue.css';
     clientLibs.push(join(path, 'dist', cssFile));
 
-    const output = await visiblyExec(`npm`, [`run`, `build`], {
+    const output = await runner.execUtility(`npm`, [`run`, `build`], {
       cwd: join(path),
     });
     const createdLine = output.stdout.split('\n')
@@ -74,47 +73,47 @@ exports.handler = async argv => {
   if (argv.only.includes('firebase')) {
     console.log(`--> Preparing fresh public directory`);
     const targetDir = join('firebase', 'public-generated');
-    await visiblyExec('rm', ['-rf', targetDir]);
-    // await visiblyExec('mkdir', [targetDir]);
-    await visiblyExec('cp', ['-ra', join('firebase', 'public'), targetDir]);
+    await runner.execUtility('rm', ['-rf', targetDir]);
+    // await runner.execUtility('mkdir', [targetDir]);
+    await runner.execUtility('cp', ['-ra', join('firebase', 'public'), targetDir]);
     for (const app of resolvedApps) {
       const webTarget = join(targetDir, app.id);
-      // await visiblyExec('rm', ['-rf', webTarget]);
-      await visiblyExec('cp', ['-ra', join(app.directory, 'web'), webTarget]);
+      // await runner.execUtility('rm', ['-rf', webTarget]);
+      await runner.execUtility('cp', ['-ra', join(app.directory, 'web'), webTarget]);
     }
 
     // js libraries
     const libDir = join(targetDir, '~~', 'lib');
-    await visiblyExec('mkdir', ['-p', libDir]);
-    await visiblyExec('cp', ['-ra',
+    await runner.execUtility('mkdir', ['-p', libDir]);
+    await runner.execUtility('cp', ['-ra',
       join(__dirname, '..', 'files', 'vendor-libs'),
       join(libDir, 'vendor')]);
 
     // copy all the dynamic libs in one command
-    await visiblyExec('cp', ['-a',
+    await runner.execUtility('cp', ['-a',
       ...clientLibs,
       libDir+'/']);
 
     // install minified vuejs
     // TODO: obtain the minified versions directly
-    await visiblyExec('mv', [
+    await runner.execUtility('mv', [
       join(libDir, 'vendor', 'vue.min.js'),
       join(libDir, 'vendor', 'vue.js')]);
-    await visiblyExec('mv', [
+    await runner.execUtility('mv', [
       join(libDir, 'vendor', 'vue-router.min.js'),
       join(libDir, 'vendor', 'vue-router.js')]);
 
     // fonts
     const fontDir = join(targetDir, '~~', 'fonts');
-    await visiblyExec('mkdir', ['-p', fontDir]);
-    await visiblyExec('cp', ['-ra',
+    await runner.execUtility('mkdir', ['-p', fontDir]);
+    await runner.execUtility('cp', ['-ra',
       join(__dirname, '..', 'files', 'vendor-fonts'),
       join(fontDir, 'vendor')]);
 
 
     console.log(`==> ${chalk.magenta.bold('Deploying')} to Firebase Hosting...`);
     const args = ['deploy', '--only', 'hosting', '--public', 'public-generated'];
-    const fireDeploy = await visiblyExec(`firebase`, args, {
+    const fireDeploy = await runner.execUtility(`firebase`, args, {
       cwd: join(process.cwd(), 'firebase'),
     });
 
@@ -131,7 +130,7 @@ exports.handler = async argv => {
     //   process.exit(5);
     // }
 
-    await visiblyExec('rm', ['-rf', targetDir]);
+    await runner.execUtility('rm', ['-rf', targetDir]);
     if (fireDeploy.stdout.includes('release complete')) {
       console.log(`==> ${chalk.green.bold('Hosting looks good!')} Yay :)`);
     } else {
@@ -144,10 +143,10 @@ exports.handler = async argv => {
 
   if (argv.only.includes('backend')) {
     console.log(`--> Preparing backend kustomization`);
-    const targetDir = (await visiblyExec(`mktemp`, ['-d'])).stdout;
+    const targetDir = await runner.createTempDir();
 
-    await visiblyExec('cp', [join(__dirname, '..', 'files', 'kustomize-skeletons', 'deployment.yaml'), targetDir]);
-    await visiblyExec('cp', [join(__dirname, '..', 'files', 'kustomize-skeletons', 'service.yaml'), targetDir]);
+    await runner.execUtility('cp', [join(__dirname, '..', 'files', 'kustomize-skeletons', 'deployment.yaml'), targetDir]);
+    await runner.execUtility('cp', [join(__dirname, '..', 'files', 'kustomize-skeletons', 'service.yaml'), targetDir]);
 
     const {
       kubernetes, allowed_origins, domain, env,
@@ -207,31 +206,31 @@ exports.handler = async argv => {
     }));
 
     console.log(`    Adding backend schemas`);
-    await visiblyExec('mkdir', [join(targetDir, 'schemas')]);
+    await runner.execUtility('mkdir', [join(targetDir, 'schemas')]);
     for (const app of resolvedApps) {
       const target = join(targetDir, 'schemas', `${app.id}.mjs`);
-      await visiblyExec('cp', [join(app.directory, 'schema.mjs'), target]);
+      await runner.execUtility('cp', [join(app.directory, 'schema.mjs'), target]);
     }
 
     const {extraSchemasDir} = projectConfig;
     if (extraSchemasDir) {
       for (const schemaFile of await fs.readdir(extraSchemasDir)) {
         const target = join(targetDir, 'schemas', schemaFile);
-        await visiblyExec('cp', [join(extraSchemasDir, schemaFile), target]);
+        await runner.execUtility('cp', [join(extraSchemasDir, schemaFile), target]);
       }
     }
 
     try {
       console.log(`    Adding secrets`);
-      await visiblyExec('cp', [join(configDir, 'firebase-service-account.json'), targetDir]);
+      await runner.execUtility('cp', [join(configDir, 'firebase-service-account.json'), targetDir]);
       await writeFile(join(targetDir, 'api.env'), Object.keys(env).map(key => `${key}=${env[key]}`).join(`\n`)+`\n`);
 
-      // const kustomized = await visiblyExec('kustomize', ['build', targetDir]);
+      // const kustomized = await runner.execUtility('kustomize', ['build', targetDir]);
       // console.log(kustomized.stdout);
       console.log(`==> ${chalk.magenta.bold('Deploying')} to Kubernetes...`);
-      const kustomized = await visiblyExecWithSpecificRetry('kubectl', ['--context='+kubernetes.context, 'apply', '-k', targetDir]);
+      const kustomized = await visiblyExecWithSpecificRetry(runner, 'kubectl', ['--context='+kubernetes.context, 'apply', '-k', targetDir]);
     } finally {
-      await visiblyExec('rm', ['-rf', targetDir]);
+      await runner.execUtility('rm', ['-rf', targetDir]);
     }
 
     const kubectl = new Kubernetes.Client(kubernetes.context, kubernetes.namespace);
@@ -251,28 +250,14 @@ async function writeFile(path, contents) {
   await fs.writeFile(path, contents, 'utf-8');
 }
 
-async function visiblyExecWithSpecificRetry(...stuff) {
+async function visiblyExecWithSpecificRetry(runner, ...stuff) {
   try {
-    return await visiblyExec(...stuff);
+    return await runner.execUtility(...stuff);
   } catch (err) {
     if (err.stderr && err.stderr.includes('context deadline exceeded')) {
       console.log('    control plane connection issue, retrying once');
-      return await visiblyExec(...stuff);
+      return await runner.execUtility(...stuff);
     }
     throw err;
   }
-}
-
-async function visiblyExec(cmd, args, ...more) {
-  await new Promise(r => process.stdout.write(
-    `    ${chalk.gray.bold(cmd)} ${chalk.gray(args.join(' '))}`, r));
-  try {
-    return await execa(cmd, args, ...more);
-  } finally {
-    process.stdout.write(`\n`);
-  }
-  // if (result.exitCode !== 0) {
-  //   console.log(chalk.red(`!-> ${args[0]} exited with ${result.exitCode}!!`));
-  //   throw new Error(`Unexpected exit code ${result.exitCode} from ${JSON.stringify(args)}`);
-  // }
 }
