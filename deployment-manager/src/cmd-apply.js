@@ -171,7 +171,7 @@ exports.handler = async argv => {
         env: [
           { name: 'FIREBASE_PROJECT_ID', value: project_id },
           { name: 'FIREBASE_DATABASE_URL', value: database_url },
-          { name: 'FIREBASE_ADMIN_UIDS', value: admin_uids.join(',') },
+          { name: 'FIREBASE_ADMIN_UIDS', value: (admin_uids||[]).join(',') },
           { name: 'SKYLINK_ALLOWED_ORIGINS', value: allowed_origins.join(',') },
         ],
       }})));
@@ -212,7 +212,9 @@ exports.handler = async argv => {
       const target = join(targetDir, 'schemas', `${app.id}.mjs`);
       await visiblyExec('cp', [join(app.directory, 'schema.mjs'), target]);
     }
-    if (projectConfig.extraSchemasDir) {
+
+    const {extraSchemasDir} = projectConfig;
+    if (extraSchemasDir) {
       for (const schemaFile of await fs.readdir(extraSchemasDir)) {
         const target = join(targetDir, 'schemas', schemaFile);
         await visiblyExec('cp', [join(extraSchemasDir, schemaFile), target]);
