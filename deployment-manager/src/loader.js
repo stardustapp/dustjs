@@ -11,10 +11,11 @@ const Runner = require('./runner.js');
 
 class DustProject {
   constructor(loader, {
-    configDir, projectConfig, resolvedApps,
+    configDir, deploymentConfig, projectConfig, resolvedApps,
   }) {
     this.loader = loader;
     this.configDir = configDir;
+    this.deploymentConfig = deploymentConfig;
     this.projectConfig = projectConfig;
     this.resolvedApps = resolvedApps;
 
@@ -93,6 +94,7 @@ class Loader {
 
   async loadProjectConfig(argv) {
     console.log('==> Loading deployment configuration...');
+    const projectConfig = yaml.safeLoad(await fs.readFile(join(this.workdir, 'dust-project.yaml'), 'utf-8'));
 
     const rcData = await fs.readFile(join(this.workdir, 'firebase', '.firebaserc'), 'utf-8');
     const firebaseRc = JSON.parse(rcData);
@@ -106,7 +108,7 @@ class Loader {
     // console.log(deploymentConfig);
 
     console.log('--> Discovering applications...');
-    const apps = await Promise.all(deploymentConfig.apps.map(async app => {
+    const apps = await Promise.all(projectConfig.apps.map(async app => {
       if (typeof app.id !== 'string' || app.id.includes('/')) throw new Error(
         `Invalid app ID ${JSON.stringify(app.id)}`);
 
@@ -128,7 +130,8 @@ class Loader {
 
     return new DustProject(this, {
       configDir: deploymentDir,
-      projectConfig: deploymentConfig,
+      deploymentConfig,
+      projectConfig,
       resolvedApps: apps,
     });
   }

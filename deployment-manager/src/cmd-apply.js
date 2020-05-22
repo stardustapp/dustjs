@@ -146,7 +146,7 @@ exports.handler = async argv => {
 
     const {
       kubernetes, allowed_origins, domain, env,
-    } = project.projectConfig.backend_deployment;
+    } = project.deploymentConfig.backend_deployment;
 
     await writeFile(join(targetDir, 'ingress.yaml'), yaml.safeDump(Kubernetes.generateIngress({
       serviceName: 'api',
@@ -156,7 +156,7 @@ exports.handler = async argv => {
 
     const {
       project_id, database_url, admin_uids,
-    } = project.projectConfig.authority.firebase;
+    } = project.deploymentConfig.authority.firebase;
 
     await writeFile(join(targetDir, 'deployment-patch.yaml'), yaml.safeDump(Kubernetes.generateDeploymentPatch('api', {
       deployment: kubernetes.replicas == null ? {} : {

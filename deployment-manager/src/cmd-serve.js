@@ -18,7 +18,7 @@ exports.builder = yargs => yargs
   .array('only')
   .boolean('send-notifs')
   .default('send-notifs', false)
-  .default('only', ['firebase', 'kubernetes'])
+  .default('only', ['firebase', 'backend'])
   .default('deployments-dir', DUSTJS_DEPLOYMENTS_DIR)
   .default('dustjs-path', '/home/dan/Code/@stardustapp/dustjs')
   .default('apps-path', DUSTJS_APPS_PATH)
@@ -178,7 +178,7 @@ exports.handler = async argv => {
 
     const {
       project_id, database_url, admin_uids,
-    } = project.projectConfig.authority.firebase;
+    } = project.deploymentConfig.authority.firebase;
 
     console.log(`==> Starting Backend...`);
     const backendProc = runner.launchBackgroundProcess('node', {
