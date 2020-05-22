@@ -19,8 +19,7 @@ exports.builder = yargs => yargs
   .default('send-notifs', false)
   .default('only', ['firebase', 'kubernetes'])
   .default('deployments-dir', DUSTJS_DEPLOYMENTS_DIR)
-  .default('client-lib-dir', '/home/dan/Code/@stardustapp/dustjs/client')
-  .default('client-vue-lib-dir', '/home/dan/Code/@stardustapp/dustjs/client-vue')
+  .default('dustjs-path', '/home/dan/Code/@stardustapp/dustjs')
   .default('apps-path', DUSTJS_APPS_PATH)
 ;
 
@@ -73,7 +72,7 @@ exports.handler = async argv => {
   let clientLibs = new Array;
   if (argv.only.includes('client-library')) {
     console.log(`==> Preparing @dustjs/client livecompile`);
-    const path = argv['client-lib-dir'];
+    const path = join(argv['dustjs-path'], 'client');
     const jsFile = 'dustjs-client.umd.js';
     clientLibs.push(join(path, 'dist', jsFile));
     clientLibs.push(join(path, 'dist', jsFile+'.map'));
@@ -112,7 +111,7 @@ exports.handler = async argv => {
 
   if (argv.only.includes('client-vue')) {
     console.log(`==> Preparing @dustjs/client-vue livecompile`);
-    const path = argv['client-vue-lib-dir'];
+    const path = join(argv['dustjs-path'], 'client-vue');
     const jsFile = 'dustjs-client-vue.umd.js';
     clientLibs.push(join(path, 'dist', jsFile));
     clientLibs.push(join(path, 'dist', jsFile+'.map'));
@@ -214,11 +213,11 @@ exports.handler = async argv => {
         } else if (match) {
           const [_, verb, path, proto, status, size] = match;
           if (status === '200' && (path.startsWith('/~~') ||  path.startsWith('/__'))) {
-            console.log(`   `, chalk.gray(`${verb} ${path} ${status}`));
+            console.log(`   `, chalk.magenta('firebase:'), chalk.gray(`${verb} ${path} ${status}`));
           } else {
             const statusColor = {'2': 'green', '3': 'cyan', '4': 'yellow', '5': 'red'}[status[0]] || 'cyan';
             const extraFmt = (parseInt(status) >= 300) ? 'bold' : statusColor;
-            console.log(`   `, chalk.blue(verb), chalk.cyan(path), chalk[statusColor][extraFmt](status));
+            console.log(`   `, chalk.magenta('firebase:'), chalk.blue(verb), chalk.cyan(path), chalk[statusColor][extraFmt](status));
           }
         }
       });
@@ -228,8 +227,66 @@ exports.handler = async argv => {
   }
 
   if (argv.only.includes('backend')) {
-    console.log(`!-> TODO: Kubernetes serving`);
+    const targetDir = (await visiblyExec(`mktemp`, ['-d'])).stdout;
+    const backendDir = join(argv['dustjs-path'], 'backend-firebase');
 
+    console.log(`--> Preparing backend schemas`);
+    await visiblyExec('mkdir', [join(targetDir, 'schemas')]);
+    for (const app of resolvedApps) {
+      await visiblyExec('ln', ['-s',
+        join(app.directory, 'schema.mjs'),
+        join(targetDir, 'schemas', `${app.id}.mjs`)]);
+    }
+    const {extraSchemasDir} = projectConfig;
+    if (extraSchemasDir) {
+      for (const schemaFile of await fs.readdir(extraSchemasDir)) {
+        await visiblyExec('ln', ['-s',
+          join(process.cwd(), extraSchemasDir, schemaFile),
+          join(targetDir, 'schemas', schemaFile)]);
+      }
+    }
+
+    const {
+      project_id, database_url, admin_uids,
+    } = projectConfig.authority.firebase;
+
+    console.log(`==> Starting Backend...`);
+    const args = ['--unhandled-rejections=strict', '.'];
+    const env = {
+      'FIREBASE_PROJECT_ID': project_id,
+      'FIREBASE_DATABASE_URL': database_url,
+      'FIREBASE_ADMIN_UIDS': (admin_uids||[]).join(','),
+      'SKYLINK_ALLOWED_ORIGINS': 'http://localhost:5000', // allowed_origins.join(','),
+      'GOOGLE_APPLICATION_CREDENTIALS': join(configDir, 'firebase-service-account.json'),
+      'DUSTJS_SCHEMA_PATH': join(targetDir, 'schemas')+'/',
+    };
+    console.log(`    ${chalk.gray.bold('node')} ${chalk.gray(args.join(' '))}`);
+
+    const backendProc = execa(`node`, args, {
+      cwd: backendDir,
+      env,
+      stderr: 'inherit',
+      buffer: false,
+    });
+    runner.addProcess(backendProc);
+
+    await new Promise((resolve, reject) => {
+      backendProc.stdout.once('end', () => reject(new Error(
+        `Backend process exited.`)));
+      backendProc.stdout.on('data', async chunk => {
+        for (const str of chunk.toString('utf-8').trim().split(`\n`)) {
+          // TODO: 'waiting for changes' only logged when in pty
+          if (str.includes('App listening on')) {
+            resolve(true);
+          }
+          if (!str.startsWith('--> inbound operation')) {
+            console.log(`   `, chalk.magenta('backend:'), str);
+          }
+        }
+      });
+    });
+    console.log(`-->`, `Backend is ready to go.`);
+    console.log();
   }
 
   process.once('SIGINT', async function() {
