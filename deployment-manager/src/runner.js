@@ -1,64 +1,108 @@
 const chalk = require('chalk');
 const execa = require('execa');
 
+const KnownDirs = new Array;
+
 class ServiceRunner {
-  constructor() {
+  constructor(defaultOpts={}) {
+    this.defaultOpts = defaultOpts;
+
     this.processes = new Array;
     this.tempDirs = new Array;
     this.shuttingDown = false;
 
-    process.once('SIGINT', async () => {
-      console.log();
-      console.log('--> Interrupted, cleaning up...');
-      await this.shutdown();
-      console.log('    Caio!');
-      console.log();
-    });
+    process.once('SIGINT', this.onInterrupt);
+  }
+  setDefaultWorkDir(workDir) {
+    console.log(`   `,
+      chalk.gray.bold('cd'),
+      chalk.gray(workDir));
+    this.defaultOpts.cwd = workDir;
+  }
+  static registerKnownDir(prefix, variable) {
+    KnownDirs.push([prefix, variable]);
+  }
+  formatArgs(args) {
+    return args.map(arg => {
+      const knownDir = KnownDirs
+        .find(([prefix]) => arg.startsWith(prefix));
+      if (knownDir) {
+        arg = chalk.blue(knownDir[1])+arg.slice(knownDir[0].length);
+      }
+      if (arg.includes(' ')) {
+        return `"${arg}"`;
+      }
+      return arg;
+    }).join(' ');
   }
 
-  async execUtility(cmd, args, opts={}) {
-    if (opts.cwd) {
-      console.log(`   `,
-        chalk.gray.bold('cd'),
-        chalk.gray(opts.cwd));
-    }
-    await new Promise(r => process.stdout.write(
-      `    ${chalk.gray.bold(cmd)} ${chalk.gray(args.join(' '))}`, r));
-    try {
-      return await execa(cmd, args, opts);
-    } finally {
-      await new Promise(r => process.stdout.write(`\n`, r));
-    }
+  onInterrupt = async () => {
+    console.log();
+    console.log('--> Interrupted, cleaning up...');
+    await this.shutdown();
+    console.log('    Caio!');
+    console.log();
   }
 
-  async createTempDir() {
-    await new Promise(r => process.stdout.write(
-      `    ${chalk.gray.bold('mktemp')} ${chalk.gray(`-d`)}`, r));
+  // Purpose-specific entrypoints
+
+  async createTempDir({andSwitch=false} = {}) {
+    let cmdStr = `${chalk.bold('mktemp')} -d`;
+    if (andSwitch) {
+      cmdStr = `${chalk.bold('cd')} "$(${cmdStr})"`;
+    }
+    cmdStr = chalk.gray(cmdStr);
+    await new Promise(r => process.stdout.write('    '+cmdStr, r));
+
     try {
       const {stdout} = await execa(`mktemp`, [`-d`]);
       this.tempDirs.push(stdout);
       await new Promise(r => process.stdout.write(chalk.blue(` # ${stdout}`), r));
+
+      if (andSwitch) {
+        this.defaultOpts.cwd = stdout;
+      }
       return stdout;
     } finally {
       await new Promise(r => process.stdout.write(`\n`, r));
     }
   }
 
+  // Generic execution
+
+  async execUtility(cmd, args, opts={}) {
+    if (opts.cwd && opts.cwd !== this.defaultOpts.cwd) {
+      console.log(`   `,
+        chalk.gray.bold('cd'),
+        chalk.gray(opts.cwd));
+    }
+    await new Promise(r => process.stdout.write(
+      `    ${chalk.gray.bold(cmd)} ${chalk.gray(this.formatArgs(args))}`, r));
+    try {
+      return await execa(cmd, args, {
+        ...this.defaultOpts, ...opts,
+      });
+    } finally {
+      await new Promise(r => process.stdout.write(`\n`, r));
+    }
+  }
+
   launchBackgroundProcess(name, {args=[], ...opts}) {
-    if (opts.cwd) {
+    if (opts.cwd && opts.cwd !== this.defaultOpts.cwd) {
       console.log(`   `,
         chalk.gray.bold('cd'),
         chalk.gray(opts.cwd));
     }
     console.log(`   `,
       chalk.gray.bold(name),
-      chalk.gray(args.join(' ')),
+      chalk.gray(this.formatArgs(args)),
       chalk.gray.bold('&'));
 
     // actually launch the process
     const proc = execa(name, args, {
       all: true,
       buffer: false,
+      ...this.defaultOpts,
       ...opts,
     });
     this.addBackgroundProcess(proc);
@@ -95,6 +139,7 @@ class ServiceRunner {
 
   async shutdown() {
     this.shuttingDown = true;
+    process.off('SIGINT', this.onInterrupt);
     const processPromises = this.processes
       .map(p => p.catch(() => {}));
 

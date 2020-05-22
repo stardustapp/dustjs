@@ -25,23 +25,22 @@ exports.builder = yargs => yargs
 ;
 
 exports.handler = async argv => {
+  const loader = new Loader(process.cwd());
   const runner = new Runner();
 
   console.log();
-  const {
-    configDir,
-    projectConfig,
-    resolvedApps,
-  } = await Loader.loadProjectConfig(process.cwd(), argv);
+  const project = await loader.loadProjectConfig(argv);
+  await project.fetchMissingPackages();
   console.log();
 
-  let clientLibs = new Array;
+  // let clientLibs = new Array;
   if (argv.only.includes('client-library')) {
     console.log(`==> Preparing @dustjs/client livecompile`);
     const path = join(argv['dustjs-path'], 'client');
     const jsFile = 'dustjs-client.umd.js';
-    clientLibs.push(join(path, 'dist', jsFile));
-    clientLibs.push(join(path, 'dist', jsFile+'.map'));
+    // clientLibs.push(join(path, 'dist', jsFile));
+    // clientLibs.push(join(path, 'dist', jsFile+'.map'));
+    project.libraryDirs.set(TODO, path);
 
     const clientBuild = runner.launchBackgroundProcess('npm', {
       args: ['run', 'dev'],
@@ -69,10 +68,11 @@ exports.handler = async argv => {
     console.log(`==> Preparing @dustjs/client-vue livecompile`);
     const path = join(argv['dustjs-path'], 'client-vue');
     const jsFile = 'dustjs-client-vue.umd.js';
-    clientLibs.push(join(path, 'dist', jsFile));
-    clientLibs.push(join(path, 'dist', jsFile+'.map'));
-    const cssFile = 'dustjs-client-vue.css';
-    clientLibs.push(join(path, 'dist', cssFile));
+    // clientLibs.push(join(path, 'dist', jsFile));
+    // clientLibs.push(join(path, 'dist', jsFile+'.map'));
+    // const cssFile = 'dustjs-client-vue.css';
+    // clientLibs.push(join(path, 'dist', cssFile));
+    project.libraryDirs.set(TODO, path);
 
     const clientBuild = runner.launchBackgroundProcess('npm', {
       args: ['run', 'dev'],
@@ -100,6 +100,7 @@ exports.handler = async argv => {
     console.log(`--> Preparing live public directory`);
 
     const targetDir = join('firebase', 'public-linked');
+    Runner.registerKnownDir(targetDir, '$WebTarget');
     await runner.execUtility('rm', ['-rf', targetDir]);
     await runner.execUtility('mkdir', [targetDir]);
     runner.tempDirs.push(targetDir);
@@ -113,7 +114,7 @@ exports.handler = async argv => {
     }
 
     // the apps
-    for (const app of resolvedApps) {
+    for (const app of project.resolvedApps) {
       await runner.execUtility('ln', ['-s',
         join(app.directory, 'web'),
         join(targetDir, app.id)]);
@@ -122,21 +123,14 @@ exports.handler = async argv => {
     // js libraries
     const libDir = join(targetDir, '~~', 'lib');
     await runner.execUtility('mkdir', ['-p', libDir]);
-    await runner.execUtility('ln', ['-s',
-      join(__dirname, '..', 'files', 'vendor-libs'),
-      join(libDir, 'vendor')]);
-
-    // link all the dynamic libs in one command
-    await runner.execUtility('ln', ['-s',
-      ...clientLibs,
-      libDir+'/']);
-
-    // fonts
-    const fontDir = join(targetDir, '~~', 'fonts');
-    await runner.execUtility('mkdir', ['-p', fontDir]);
-    await runner.execUtility('ln', ['-s',
-      join(__dirname, '..', 'files', 'vendor-fonts'),
-      join(fontDir, 'vendor')]);
+    for (const lib of project.projectConfig.hosted_libraries || []) {
+      const cacheDir = project.libraryDirs.get(lib);
+      if (!cacheDir) throw new Error(
+        `BUG: ${lib.npm_module} wasn't found locally`);
+      await runner.execUtility('ln', ['-s',
+        join(cacheDir, lib.sub_path||''),
+        join(libDir, lib.npm_module.replace('/', '-'))]);
+    }
 
     console.log(`==> Starting Firebase Hosting...`);
     const fireServe = runner.launchBackgroundProcess('firebase', {
@@ -168,12 +162,12 @@ exports.handler = async argv => {
 
     console.log(`--> Preparing backend schemas`);
     await runner.execUtility('mkdir', [join(targetDir, 'schemas')]);
-    for (const app of resolvedApps) {
+    for (const app of project.resolvedApps) {
       await runner.execUtility('ln', ['-s',
         join(app.directory, 'schema.mjs'),
         join(targetDir, 'schemas', `${app.id}.mjs`)]);
     }
-    const {extraSchemasDir} = projectConfig;
+    const {extraSchemasDir} = project.projectConfig;
     if (extraSchemasDir) {
       for (const schemaFile of await fs.readdir(extraSchemasDir)) {
         await runner.execUtility('ln', ['-s',
@@ -184,7 +178,7 @@ exports.handler = async argv => {
 
     const {
       project_id, database_url, admin_uids,
-    } = projectConfig.authority.firebase;
+    } = project.projectConfig.authority.firebase;
 
     console.log(`==> Starting Backend...`);
     const backendProc = runner.launchBackgroundProcess('node', {
@@ -195,7 +189,7 @@ exports.handler = async argv => {
         'FIREBASE_DATABASE_URL': database_url,
         'FIREBASE_ADMIN_UIDS': (admin_uids||[]).join(','),
         'SKYLINK_ALLOWED_ORIGINS': 'http://localhost:5000', // allowed_origins.join(','),
-        'GOOGLE_APPLICATION_CREDENTIALS': join(configDir, 'firebase-service-account.json'),
+        'GOOGLE_APPLICATION_CREDENTIALS': join(project.configDir, 'firebase-service-account.json'),
         'DUSTJS_SCHEMA_PATH': join(targetDir, 'schemas')+'/',
       },
     });

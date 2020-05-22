@@ -1,5 +1,5 @@
 const fs = require('fs').promises;
-const {join} = require('path');
+const {join, dirname} = require('path');
 
 const yaml = require('js-yaml');
 const chalk = require('chalk');
@@ -22,18 +22,16 @@ exports.builder = yargs => yargs
 ;
 
 exports.handler = async argv => {
+  const loader = new Loader(process.cwd());
   const runner = new Runner();
 
   // console.log('input:', argv);
   console.log();
-  const {
-    configDir,
-    projectConfig,
-    resolvedApps,
-  } = await Loader.loadProjectConfig(process.cwd(), argv);
+  const project = await loader.loadProjectConfig(argv);
+  await project.fetchMissingPackages();
   console.log();
 
-  let clientLibs = new Array;
+  // let clientLibs = new Array;
 
   // TODO: fetch these from unpkg (cache locally?) if no checkout
   // TODO: if checkout... then run a build?
@@ -73,10 +71,14 @@ exports.handler = async argv => {
   if (argv.only.includes('firebase')) {
     console.log(`--> Preparing fresh public directory`);
     const targetDir = join('firebase', 'public-generated');
+    Runner.registerKnownDir(targetDir, '$WebTarget');
+
+    // start with
     await runner.execUtility('rm', ['-rf', targetDir]);
-    // await runner.execUtility('mkdir', [targetDir]);
     await runner.execUtility('cp', ['-ra', join('firebase', 'public'), targetDir]);
-    for (const app of resolvedApps) {
+
+    // the apps
+    for (const app of project.resolvedApps) {
       const webTarget = join(targetDir, app.id);
       // await runner.execUtility('rm', ['-rf', webTarget]);
       await runner.execUtility('cp', ['-ra', join(app.directory, 'web'), webTarget]);
@@ -85,50 +87,44 @@ exports.handler = async argv => {
     // js libraries
     const libDir = join(targetDir, '~~', 'lib');
     await runner.execUtility('mkdir', ['-p', libDir]);
-    await runner.execUtility('cp', ['-ra',
-      join(__dirname, '..', 'files', 'vendor-libs'),
-      join(libDir, 'vendor')]);
+    for (const lib of project.projectConfig.hosted_libraries || []) {
+      const cacheDir = project.libraryDirs.get(lib);
+      if (!cacheDir) throw new Error(
+        `BUG: ${lib.npm_module} wasn't found locally`);
 
-    // copy all the dynamic libs in one command
-    await runner.execUtility('cp', ['-a',
-      ...clientLibs,
-      libDir+'/']);
-
-    // install minified vuejs
-    // TODO: obtain the minified versions directly
-    await runner.execUtility('mv', [
-      join(libDir, 'vendor', 'vue.min.js'),
-      join(libDir, 'vendor', 'vue.js')]);
-    await runner.execUtility('mv', [
-      join(libDir, 'vendor', 'vue-router.min.js'),
-      join(libDir, 'vendor', 'vue-router.js')]);
-
-    // fonts
-    const fontDir = join(targetDir, '~~', 'fonts');
-    await runner.execUtility('mkdir', ['-p', fontDir]);
-    await runner.execUtility('cp', ['-ra',
-      join(__dirname, '..', 'files', 'vendor-fonts'),
-      join(fontDir, 'vendor')]);
-
+      const baseDir = join(cacheDir, lib.sub_path || '');
+      const destDir = join(libDir, lib.npm_module.replace('/', '-'));
+      switch (true) {
+        case 'paths' in lib:
+          await runner.execUtility('mkdir', [destDir]);
+          for (const path of lib.paths) {
+            await runner.execUtility('cp', ['-a', join(baseDir, path), join(destDir, path)]);
+          }
+          break;
+        case 'patterns' in lib:
+          await runner.execUtility('mkdir', [destDir]);
+          const pattern = new RegExp('^.\\/'+lib.patterns.map(x => x.replace(/\//g, '\\/')).join('|')+'$', 'gm');
+          const findCmd = await runner.execUtility(`find`, ['.', '-type', 'f'], {cwd: baseDir});
+          const dirs = new Set('.');
+          for (const path of findCmd.stdout.match(pattern)) {
+            const dir = dirname(path);
+            if (dir && !dirs.has(dir)) {
+              await runner.execUtility('mkdir', ['-p', join(destDir, dir)]);
+              dirs.add(dir);
+            }
+            await runner.execUtility('cp', ['-a', join(baseDir, path), join(destDir, path)]);
+          }
+          break;
+        default:
+          await runner.execUtility('cp', ['-ra', baseDir, destDir]);
+      }
+    }
 
     console.log(`==> ${chalk.magenta.bold('Deploying')} to Firebase Hosting...`);
     const args = ['deploy', '--only', 'hosting', '--public', 'public-generated'];
     const fireDeploy = await runner.execUtility(`firebase`, args, {
       cwd: join(process.cwd(), 'firebase'),
     });
-
-    // console.log(`    ${chalk.gray.bold('firebase')} ${chalk.gray(args.join(' '))}`);
-    // const fireProc = execa('firebase', args, {
-    //   // buffer: false,
-    //   stdio: 'inherit',
-    //   cwd: join(process.cwd(), 'firebase'),
-    // });
-    // try {
-    //   await fireProc;
-    // } catch (err) {
-    //   console.log(`!-> Firebase deploy crashed w/ exit code ${err.code}`)
-    //   process.exit(5);
-    // }
 
     await runner.execUtility('rm', ['-rf', targetDir]);
     if (fireDeploy.stdout.includes('release complete')) {
@@ -150,7 +146,7 @@ exports.handler = async argv => {
 
     const {
       kubernetes, allowed_origins, domain, env,
-    } = projectConfig.backend_deployment;
+    } = project.projectConfig.backend_deployment;
 
     await writeFile(join(targetDir, 'ingress.yaml'), yaml.safeDump(Kubernetes.generateIngress({
       serviceName: 'api',
@@ -160,7 +156,7 @@ exports.handler = async argv => {
 
     const {
       project_id, database_url, admin_uids,
-    } = projectConfig.authority.firebase;
+    } = project.projectConfig.authority.firebase;
 
     await writeFile(join(targetDir, 'deployment-patch.yaml'), yaml.safeDump(Kubernetes.generateDeploymentPatch('api', {
       deployment: kubernetes.replicas == null ? {} : {
@@ -189,7 +185,7 @@ exports.handler = async argv => {
       ],
       configMapGenerator: [{
         name: 'api-schemas',
-        files: resolvedApps.map(app => `${app.id}.mjs=schemas/${app.id}.mjs`),
+        files: project.resolvedApps.map(app => `${app.id}.mjs=schemas/${app.id}.mjs`),
       }],
       secretGenerator: [{
         name: 'api-files',
@@ -207,12 +203,12 @@ exports.handler = async argv => {
 
     console.log(`    Adding backend schemas`);
     await runner.execUtility('mkdir', [join(targetDir, 'schemas')]);
-    for (const app of resolvedApps) {
+    for (const app of project.resolvedApps) {
       const target = join(targetDir, 'schemas', `${app.id}.mjs`);
       await runner.execUtility('cp', [join(app.directory, 'schema.mjs'), target]);
     }
 
-    const {extraSchemasDir} = projectConfig;
+    const {extraSchemasDir} = project.projectConfig;
     if (extraSchemasDir) {
       for (const schemaFile of await fs.readdir(extraSchemasDir)) {
         const target = join(targetDir, 'schemas', schemaFile);
@@ -222,7 +218,7 @@ exports.handler = async argv => {
 
     try {
       console.log(`    Adding secrets`);
-      await runner.execUtility('cp', [join(configDir, 'firebase-service-account.json'), targetDir]);
+      await runner.execUtility('cp', [join(project.configDir, 'firebase-service-account.json'), targetDir]);
       await writeFile(join(targetDir, 'api.env'), Object.keys(env).map(key => `${key}=${env[key]}`).join(`\n`)+`\n`);
 
       // const kustomized = await runner.execUtility('kustomize', ['build', targetDir]);
