@@ -1,0 +1,16 @@
+{
+  "name": "@dustjs/automaton-lua",
+  "version": "0.1.0",
+  "description": "",
+  "main": "src/app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@dustjs/skylink": "^0.2.4",
+    "fengari": "^0.1.4",
+    "minimist": "^1.2.5"
+  }
+}
