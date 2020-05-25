@@ -62,7 +62,7 @@ exports.LUA_API = {
 
   // ctx.import(wireUri) Context
   async import(L, T) {
-    const wireUri = lua.lua_tojsstring(L, 1).replace('10.8.0.5', '10.69.4.69'); // TODO
+    const wireUri = lua.lua_tojsstring(L, 1);//.replace('10.8.0.5', '10.69.4.69'); // TODO
     lua.lua_pop(L, 1);
     this.status = "Waiting: Dialing " + wireUri;
 
