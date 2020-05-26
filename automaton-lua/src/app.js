@@ -24,6 +24,7 @@ var argv = parseArgs(process.argv, {
   // TODO: shouldn't have to repeat ourselves
   argKeys.delete('_');
   argKeys.delete('app');
+  argKeys.delete('service');
   argKeys.delete('default-mounts');
 
   const userMounts = new Array;
