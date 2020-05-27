@@ -4,6 +4,15 @@ const process = require('process');
 
 const KnownDirs = new Array;
 
+// TODO: execa uses a comprehensive lib for cleanup, but it's not async-friendly. so we do a best effort with temp dirs until it makes sense to add sync cleanup.
+const cleaningUp = new Promise(resolve => {
+  function catchSignal() {
+    process.off('SIGINT', resolve);
+    resolve();
+  }
+  process.on('SIGINT', resolve);
+});
+
 class ServiceRunner {
   constructor(cwd) {
     this.cwd = cwd || process.cwd();
@@ -12,7 +21,7 @@ class ServiceRunner {
     this.tempDirs = new Array;
     this.shuttingDown = false;
 
-    process.once('SIGINT', this.onInterrupt);
+    cleaningUp.then(this.onInterrupt);
   }
   setDefaultWorkDir(workDir) {
     console.log(`   `,
@@ -25,6 +34,9 @@ class ServiceRunner {
       chalk.blue(variable.slice(1))
       +chalk.gray('='+prefix));
     KnownDirs.push([prefix, variable]);
+  }
+  addTempDir(tempDir) {
+    this.tempDirs.push(tempDir);
   }
   formatArgs(args) {
     return args.map(arg => {
@@ -160,7 +172,7 @@ class ServiceRunner {
     await Promise.all(processPromises);
 
     for (const dir of this.tempDirs) {
-      await this.execUtility('rm', ['-r', dir]);
+      await this.execUtility('rm', ['-rf', dir]);
     }
   }
 

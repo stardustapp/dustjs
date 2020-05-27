@@ -73,6 +73,56 @@ exports.handler = async argv => {
     console.log();
   }
 
+  if (argv.only.includes('backend')) {
+    const targetDir = await runner.createTempDir();
+    const backendDir = join(argv['dustjs-path'], 'backend-firebase');
+
+    console.log(`--> Preparing backend schemas`);
+    await runner.execUtility('mkdir', [join(targetDir, 'schemas')]);
+    for (const app of project.resolvedApps) {
+      await runner.execUtility('ln', ['-s',
+        join(app.directory, 'schema.mjs'),
+        join(targetDir, 'schemas', `${app.id}.mjs`)]);
+    }
+    const {extraSchemasDir} = project.projectConfig;
+    if (extraSchemasDir) {
+      for (const schemaFile of await fs.readdir(extraSchemasDir)) {
+        await runner.execUtility('ln', ['-s',
+          join(process.cwd(), extraSchemasDir, schemaFile),
+          join(targetDir, 'schemas', schemaFile)]);
+      }
+    }
+
+    const {
+      project_id, database_url, admin_uids,
+    } = project.deploymentConfig.authority.firebase;
+
+    console.log(`==> Starting Backend...`);
+    const backendProc = runner.launchBackgroundProcess('node', {
+      args: ['--unhandled-rejections=strict', '.'],
+      cwd: backendDir,
+      env: {
+        'FIREBASE_PROJECT_ID': project_id,
+        'FIREBASE_DATABASE_URL': database_url,
+        'FIREBASE_ADMIN_UIDS': (admin_uids||[]).join(','),
+        'SKYLINK_ALLOWED_ORIGINS': 'http://localhost:5000', // allowed_origins.join(','),
+        'GOOGLE_APPLICATION_CREDENTIALS': join(project.configDir, 'firebase-service-account.json'),
+        'DUSTJS_SCHEMA_PATH': join(targetDir, 'schemas')+'/',
+      },
+    });
+
+    await backendProc.perLine((line, resolve) => {
+      if (line.includes('App listening on')) {
+        resolve(true);
+      }
+      if (!line.startsWith('--> inbound operation')) {
+        console.log(`   `, chalk.magenta('backend:'), line);
+      }
+    });
+    console.log(`-->`, `Backend is ready to go.`);
+    console.log();
+  }
+
   if (argv.only.includes('firebase')) {
     console.log(`--> Preparing live public directory`);
 
@@ -80,7 +130,7 @@ exports.handler = async argv => {
     Runner.registerKnownDir(targetDir, '$WebTarget');
     await runner.execUtility('rm', ['-rf', targetDir]);
     await runner.execUtility('mkdir', [targetDir]);
-    runner.tempDirs.push(targetDir);
+    runner.addTempDir(targetDir);
 
     // what we can do of manual public/
     const publicDir = join('firebase', 'public');
@@ -140,53 +190,4 @@ exports.handler = async argv => {
     console.log();
   }
 
-  if (argv.only.includes('backend')) {
-    const targetDir = await runner.createTempDir();
-    const backendDir = join(argv['dustjs-path'], 'backend-firebase');
-
-    console.log(`--> Preparing backend schemas`);
-    await runner.execUtility('mkdir', [join(targetDir, 'schemas')]);
-    for (const app of project.resolvedApps) {
-      await runner.execUtility('ln', ['-s',
-        join(app.directory, 'schema.mjs'),
-        join(targetDir, 'schemas', `${app.id}.mjs`)]);
-    }
-    const {extraSchemasDir} = project.projectConfig;
-    if (extraSchemasDir) {
-      for (const schemaFile of await fs.readdir(extraSchemasDir)) {
-        await runner.execUtility('ln', ['-s',
-          join(process.cwd(), extraSchemasDir, schemaFile),
-          join(targetDir, 'schemas', schemaFile)]);
-      }
-    }
-
-    const {
-      project_id, database_url, admin_uids,
-    } = project.deploymentConfig.authority.firebase;
-
-    console.log(`==> Starting Backend...`);
-    const backendProc = runner.launchBackgroundProcess('node', {
-      args: ['--unhandled-rejections=strict', '.'],
-      cwd: backendDir,
-      env: {
-        'FIREBASE_PROJECT_ID': project_id,
-        'FIREBASE_DATABASE_URL': database_url,
-        'FIREBASE_ADMIN_UIDS': (admin_uids||[]).join(','),
-        'SKYLINK_ALLOWED_ORIGINS': 'http://localhost:5000', // allowed_origins.join(','),
-        'GOOGLE_APPLICATION_CREDENTIALS': join(project.configDir, 'firebase-service-account.json'),
-        'DUSTJS_SCHEMA_PATH': join(targetDir, 'schemas')+'/',
-      },
-    });
-
-    await backendProc.perLine((line, resolve) => {
-      if (line.includes('App listening on')) {
-        resolve(true);
-      }
-      if (!line.startsWith('--> inbound operation')) {
-        console.log(`   `, chalk.magenta('backend:'), line);
-      }
-    });
-    console.log(`-->`, `Backend is ready to go.`);
-    console.log();
-  }
 }
