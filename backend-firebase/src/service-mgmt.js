@@ -2,7 +2,7 @@ const {Datadog} = require('./lib/datadog.js');
 const {AsyncCache} = require('./lib/async-cache.js');
 const {
   PathFragment,
-  SkylinkServer, SkylinkClientEntry,
+  SkylinkServer, SkylinkClient, SkylinkClientEntry,
 } = require('@dustjs/skylink');
 
 const myHostname = require('os').hostname();
@@ -145,7 +145,50 @@ class UserService {
     this.svcId = svcId;
     this.localEndpoints = localEndpoints;
     this.serviceMgmt = serviceMgmt;
+    // indirect SkylinkClient impl
+    this.proxiedClient = new ProxiedServiceClient(this);
   }
+
+  async processWaitingFrameDocument(docSnap) {
+    console.log('received waiting frame', docSnap.get('request.Op'));
+    let response = {
+      Ok: false,
+    };
+
+    const endpoint = this.localEndpoints.get(this.svcId);
+    if (endpoint) {
+      const fireRequest = docSnap.get('request');
+
+      const server = new SkylinkServer(endpoint);
+      const innerResponse = await server.processFrame({
+        ...fireRequest,
+        Input: JSON.parse(fireRequest.Input),
+      });
+      response = {
+        ...innerResponse,
+        Output: JSON.stringify(innerResponse.Output || null),
+      };
+    } else {
+      response.Output = JSON.stringify({
+        Type: 'Error',
+        Authority: myHostname,
+        StringValue: `BUG: I am supposed to have service "${this.svcId}" locally but I don't actually have it. Sorry`,
+      });
+    }
+
+    Datadog.countFireOp('write', docSnap.ref, {fire_op: 'merge', method: 'services/waitingFrames'});
+    await docSnap.ref.set({
+      response,
+      state: 'Done',
+      fulfilled: {
+        date: new Date,
+        hostname: myHostname,
+      },
+    }, {
+      mergeFields: ['response', 'state', 'fulfilled'],
+    });
+  }
+
   configure(docSnap) {
     console.log('configuring svc', this.docRef.path, 'for hostname', docSnap.get('apiHostname'));
     this.latestSnap = docSnap.data();
@@ -161,46 +204,9 @@ class UserService {
         .onSnapshot(async querySnap => {
           for (const docChange of querySnap.docChanges()) {
             Datadog.countFireOp('read', docChange.doc.ref, {fire_op: 'watched', method: 'services/waitingFrames'});
-            if (docChange.type !== 'added') continue;
-
-            console.log('received waiting frame', docChange.doc.get('request.Op'));
-
-            let response = {
-              Ok: false,
-            };
-
-            const endpoint = this.localEndpoints.get(this.svcId);
-            if (endpoint) {
-              const fireRequest = docChange.doc.get('request');
-
-              const server = new SkylinkServer(endpoint);
-              const innerResponse = await server.processFrame({
-                ...fireRequest,
-                Input: JSON.parse(fireRequest.Input),
-              });
-              response = {
-                ...innerResponse,
-                Output: JSON.stringify(innerResponse.Output || null),
-              };
-            } else {
-              response.Output = JSON.stringify({
-                Type: 'Error',
-                Authority: myHostname,
-                StringValue: `BUG: I am supposed to have service "${this.svcId}" locally but I don't actually have it. Sorry`,
-              });
+            if (docChange.type === 'added') {
+              await this.processWaitingFrameDocument(docChange.doc);
             }
-
-            Datadog.countFireOp('write', docChange.doc.ref, {fire_op: 'merge', method: 'services/waitingFrames'});
-            await docChange.doc.ref.set({
-              response,
-              state: 'Done',
-              fulfilled: {
-                date: new Date,
-                hostname: myHostname,
-              },
-            }, {
-              mergeFields: ['response', 'state', 'fulfilled'],
-            });
           }
         });
     } else if (this.stopListening) {
@@ -209,6 +215,7 @@ class UserService {
       this.stopListening = null;
     }
   }
+
   getEntry(path) {
     if (this.latestSnap.apiHostname === myHostname) {
       const endpoint = this.localEndpoints.get(this.svcId);
@@ -218,17 +225,24 @@ class UserService {
         console.error(`WARN: we're supposed to have "${this.docRef.path}" locally but I don't have it`);
       }
     } else if (this.latestSnap.canFireProxy) {
-      return new SkylinkClientEntry(this, path);
+      return new SkylinkClientEntry(this.proxiedClient, path);
     }
   }
+}
 
-  // API used to issue Skylink requests
+// API used to issue Skylink requests indirectly
+class ProxiedServiceClient extends SkylinkClient {
+  constructor(service) {
+    super();
+    this.service = service;
+  }
+
   async volley(request) {
     // TODO: try talking directly over HTTP before falling back to fireproxy
 
-    const frameCollRef = this.docRef.collection('frames');
+    const frameCollRef = this.service.docRef.collection('frames');
     Datadog.countFireOp('write', frameCollRef, {fire_op: 'add', method: 'service/request'});
-    console.log(request)
+    // console.log(request)
     const newDoc = await frameCollRef.add({
       state: 'Waiting',
       request: {
@@ -243,19 +257,19 @@ class UserService {
 
     const response = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        Datadog.count('service.timeout', 1, {service_id: this.svcId});
+        Datadog.count('service.timeout', 1, {service_id: this.service.svcId});
         reject(new Error(`UserService#volley times out at 5 seconds`));
       }, 5000);
-      this.serviceMgmt.frameListeners.set(newDoc.path, function (x) {
+      this.service.serviceMgmt.frameListeners.set(newDoc.path, function (x) {
         clearTimeout(timeout);
         resolve(x);
       });
     });
 
-    return {
+    return this.decodeOutput({
       ...response,
       Output: JSON.parse(response.Output),
-    };
+    });
   }
 
 }
