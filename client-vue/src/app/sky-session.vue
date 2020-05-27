@@ -73,7 +73,7 @@ export default {
     background-color: gray;
   }
   .sky-session .indicator.status-Ready {
-    background-color: graeen;
+    background-color: green;
   }
 
   .sky-session .filler {
