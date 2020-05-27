@@ -99,14 +99,12 @@ var argv = parseArgs(process.argv, {
 
   if (argv.service) {
     console.log('--> Publishing our API surface...');
-    await apiSession.wsDevice.remote.volley({
-      Op: 'invoke',
-      Path: '/pub/publish%20service/invoke',
-      Input: new FolderEntry('Publication', [
+    await apiSession.wsDevice.invoke('/pub/publish%20service/invoke',
+      new FolderEntry('Publication', [
         new StringEntry('Session ID', apiSession.sessionId),
         new StringEntry('Service ID', argv.service),
         new DeviceEntry('Ref', runtime.env),
-      ])});
+      ]));
   } else {
     console.log('   ', `Skipping API surface publication because --service=... wasn't provided`);
   }
