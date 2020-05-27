@@ -8,7 +8,7 @@ export class SkylinkClientDevice {
 
     // copy promise from remote
     this.ready = Promise.resolve(remote.ready)
-      .then(() => remote.volley({Op: 'ping'}));
+      .then(() => remote.performOp({Op: 'ping'}));
     this.closed = new Promise(resolve => this.markClosed = resolve);
   }
 
@@ -61,41 +61,26 @@ export class SkylinkClientEntry {
     this.path = path;
   }
 
-  async get() {
-    const response = await this.remote.volley({
+  get() {
+    return this.remote.performOp({
       Op: 'get',
       Path: this.path,
     });
-
-    if (!response.Ok) {
-      const err = new Error(
-        `Remote skylink get() failed: ${(response.Output||{}).StringValue || "Empty"}`);
-      err.response = response;
-      throw err;
-    }
-    return response.Output;
   }
 
   async enumerate(enumer) {
-    const response = await this.remote.volley({
+    const response = await this.remote.performOp({
       Op: 'enumerate',
       Path: this.path||'/',
       Depth: enumer.remainingDepth(),
     });
 
-    if (!response.Ok) {
-      const err = new Error(
-        `Remote skylink enumerate() failed: ${(response.Output||{}).StringValue || "Empty"}`);
-      err.response = response;
-      throw err;
-    }
-
     // transclude the remote enumeration
     enumer.visitEnumeration(response.Output);
   }
 
-  async put(value) {
-    const response = await this.remote.volley((value === null) ? {
+  put(value) {
+    return this.remote.performOp((value === null) ? {
       Op: 'unlink',
       Path: this.path,
     } : {
@@ -103,51 +88,25 @@ export class SkylinkClientEntry {
       Dest: this.path,
       Input: value,
     });
-
-    if (!response.Ok) {
-      const err = new Error(
-        `Remote skylink put() failed: ${(response.Output||{}).StringValue || "Empty"}`);
-      err.response = response;
-      throw err;
-    }
   }
 
-  async invoke(value) {
-    // if (typeof value.get === 'function') {
-    //   value = await value.get();
-    // }
-
-    const response = await this.remote.volley({
+  invoke(value) {
+    return this.remote.performOp({
       Op: 'invoke',
       Path: this.path,
       Input: value,
     });
-
-    if (!response.Ok) {
-      const err = new Error(
-        `Remote skylink invoke() failed: ${(response.Output||{}).StringValue || "Empty"}`);
-      err.response = response;
-      throw err;
-    }
-    return response.Output;
   }
 
   async subscribe(depth, newChannel) {
     console.log('starting remote sub to', this.path);
-    const response = await this.remote.volley({
+    const response = await this.remote.performOp({
       Op: 'subscribe',
       Path: this.path,
       Depth: depth,
     });
 
-    if (!response.Ok) {
-      const err = new Error(
-        `Remote skylink subscribe() failed: ${(response.Output||{}).StringValue || "Empty"}`);
-      err.response = response;
-      throw err;
-    }
-
-    const {channel, stop} = response.Output;
+    const {channel, stop} = response;
     return newChannel.invoke(async c => {
       // proxy between remote and local channel
       channel.forEach(c.next, c.error, c.done);

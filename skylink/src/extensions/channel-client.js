@@ -31,7 +31,7 @@ export class InlineChannelClient {
         channel: chan.map(InflateSkylinkLiteral),
         stop: () => {
           // TODO?: drop new packets until the stop is ack'd ??
-          return this._client.volley({
+          return this._client.performOp({
             Op: 'stop',
             Path: '/chan/'+frame.Chan,
           });

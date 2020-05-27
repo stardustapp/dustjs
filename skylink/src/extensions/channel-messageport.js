@@ -60,7 +60,7 @@ export class MessagePortChannelClient {
       channel: chan,
       stop(input) {
         console.log('skylink Requesting stop of chan', channel.chanId);
-        return this.worker.volley({
+        return this.worker.performOp({
           Op: 'stop',
           Path: '/chan/'+this.chanId,
           Input: input,
