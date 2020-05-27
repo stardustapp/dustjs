@@ -13,7 +13,7 @@ const {DUSTJS_DEPLOYMENTS_DIR, DUSTJS_APPS_PATH} = process.env;
 
 exports.builder = yargs => yargs
   .array('only')
-  .default('only', ['firebase', 'backend'])
+  .default('only', ['firebase', 'backend', 'services'])
   .default('backend-image-tag', 'latest')
   .default('deployments-dir', DUSTJS_DEPLOYMENTS_DIR)
   .default('client-lib-dir', '/home/dan/Code/@stardustapp/dustjs/client')
@@ -73,15 +73,22 @@ exports.handler = async argv => {
     const targetDir = join('firebase', 'public-generated');
     Runner.registerKnownDir(targetDir, '$WebTarget');
 
-    // start with
+    // start with the static html
     await runner.execUtility('rm', ['-rf', targetDir]);
     await runner.execUtility('cp', ['-ra', join('firebase', 'public'), targetDir]);
 
     // the apps
     for (const app of project.resolvedApps) {
+      const webBundle = (app.appConfig.bundles || [])
+        .find(x => x.type === 'static html');
+      if (!webBundle) {
+        console.log('!-> WARN: App', app.id, 'lacks a static HTML bundle');
+        continue;
+      }
+
       const webTarget = join(targetDir, app.id);
       // await runner.execUtility('rm', ['-rf', webTarget]);
-      await runner.execUtility('cp', ['-ra', join(app.directory, 'web'), webTarget]);
+      await runner.execUtility('cp', ['-ra', join(app.directory, webBundle.source), webTarget]);
     }
 
     // js libraries
@@ -239,6 +246,60 @@ exports.handler = async argv => {
     console.log(`==> ${chalk.green.bold('Backend looks good!')} ${chalk.green(`${finalPods.length} pod${podS}`)} ${verb} in service. :)`);
     console.log();
   }
+
+
+
+  if (argv.only.includes('services')) {
+    console.log(`--> Preparing services kustomization`);
+    const targetDir = await runner.createTempDir();
+
+    const configMapGenerator = new Array;
+
+    // the apps
+    for (const app of project.resolvedApps) {
+      const routineBundle = (app.appConfig.bundles || [])
+        .find(x => x.type === 'app routines');
+      if (!routineBundle) {
+        // console.log('--> App', app.id, 'lacks a routines bundle');
+        continue;
+      }
+
+      const token = `routines-${app.id}`;
+      const svcsSource = join(app.directory, routineBundle.source);
+      const svcsTarget = join(targetDir, token);
+      await runner.execUtility('cp', ['-ra',
+        svcsSource, svcsTarget]);
+
+      const files = await fs.readdir(svcsTarget);
+      configMapGenerator.push({
+        name: token,
+        files: files.map(file => `${file}=${token}/${file}`),
+      });
+    }
+
+    const {
+      kubernetes, allowed_origins, domain, env,
+    } = project.deploymentConfig.backend_deployment;
+
+    await writeFile(join(targetDir, 'kustomization.yaml'), yaml.safeDump({
+      // commonLabels: kubernetes.labels,
+      namespace: kubernetes.namespace,
+      // namePrefix: `${project_id}-`,
+      configMapGenerator,
+    }));
+
+    console.log(`==> ${chalk.magenta.bold('Deploying')} Routines to Kubernetes...`);
+    const kustomized = await visiblyExecWithSpecificRetry(runner, 'kubectl', ['--context='+kubernetes.context, 'apply', '-k', targetDir]);
+    for (const line of kustomized.stdout.split('\n')) {
+      console.log('   ', line);
+    }
+
+    console.log(`==> ${chalk.green.bold('Routines look good!')}`);
+    console.log();
+  }
+
+
+
 }
 
 async function writeFile(path, contents) {

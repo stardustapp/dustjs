@@ -88,7 +88,12 @@ class Loader {
       .then(() => true, () => false);
     if (schemaExists) {
       console.log('    Found', chalk.bold(config.id), 'at', chalk.green(appDir));
-      return { ...config, directory: appDir };
+
+      const appConfigPath = join(appDir, 'dust-project.yaml');
+      const appConfig = await fs.readFile(appConfigPath, 'utf-8')
+        .then(x => yaml.safeLoad(x), err => ({}));
+
+      return { ...config, appConfig, directory: appDir };
     }
   }
 

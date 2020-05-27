@@ -115,8 +115,15 @@ exports.handler = async argv => {
 
     // the apps
     for (const app of project.resolvedApps) {
+      const webBundle = (app.appConfig.bundles || [])
+        .find(x => x.type === 'static html');
+      if (!webBundle) {
+        console.log('!-> WARN: App', app.id, 'lacks a static HTML bundle');
+        continue;
+      }
+
       await runner.execUtility('ln', ['-s',
-        join(app.directory, 'web'),
+        join(app.directory, webBundle.source),
         join(targetDir, app.id)]);
     }
 
