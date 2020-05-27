@@ -39,11 +39,12 @@ export class SkylinkClient {
         case true:
           return response.Output;
         case false:
-          const failErr = new Error(this.makeRejectionMessage(request, output));
+          const failErr = new Error(this
+            .makeRejectionMessage(request, response.Output));
           failErr.response = response;
           return Promise.reject(failErr);
         default:
-          console.log('ERR: Bad server response, missing "Ok":', response);
+          console.log('ERR: Bad server response, missing "Ok":', request, response);
           const err = new Error(`BUG: Skylink server response didn't have 'Ok'`);
           err.response = response;
           return Promise.reject(err);

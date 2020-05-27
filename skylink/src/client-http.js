@@ -19,6 +19,6 @@ export class StatelessHttpSkylinkClient extends SkylinkClient {
 
     if (resp.status < 200 || resp.status >= 300)
       throw new Error(`Skylink op failed with HTTP ${resp.status}`);
-    return this.decodeOutput(resp.json());
+    return this.decodeOutput(await resp.json());
   }
 }
