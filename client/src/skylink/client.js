@@ -1,7 +1,10 @@
 import * as base64js from 'base64-js';
 
-import {SkylinkHttpTransport} from './transports/http.js';
-import {SkylinkWsTransport} from './transports/ws.js';
+import {
+  StatelessHttpSkylinkClient,
+  WebsocketSkylinkClient,
+} from '@dustjs/skylink';
+
 import {entryToJS} from './ns-convert.js';
 
 export class Skylink {
@@ -20,6 +23,8 @@ export class Skylink {
       this.endpoint = endpoint.endpoint;
       this.protocol = endpoint.protocol;
       this.transport = endpoint.transport;
+      this.readyPromise = Promise.resolve();
+      this.donePromise = new Promise(r => endpoint.transport.shutdownHandlers.push(r));
     } else {
       // If given string or nothing, make a new transport
       this.endpoint = endpoint || '/~~export';
@@ -27,7 +32,7 @@ export class Skylink {
       if (this.endpoint.startsWith('ws')) {
         this.protocol = 'ws';
       }
-      this.startTransport();
+      this.readyPromise = this.startTransport();
     }
   }
 
@@ -86,14 +91,14 @@ export class Skylink {
   // First-order operations
 
   ping() {
-    return this.exec({Op: 'ping'}).then(x => x.Ok);
+    return this.exec({Op: 'ping'})
   }
 
   get(path) {
     return this.exec({
       Op: 'get',
       Path: (this.prefix + path) || '/',
-    }).then(x => x.Output);
+    });
   }
 
   enumerate(path, opts={}) {
@@ -105,7 +110,7 @@ export class Skylink {
       Depth: maxDepth,
       Shapes: shapes,
     }).then(res => {
-      const list = res.Output.Children;
+      const list = res.Children;
       if (opts.includeRoot === false) {
         list.splice(0, 1);
       }
@@ -119,7 +124,7 @@ export class Skylink {
       Op: 'subscribe',
       Path: this.prefix + path,
       Depth: maxDepth,
-    });
+    }).then(x => ({stop: x.stop, channel: x.channel.map(entryToJS)}));
   }
 
   store(path, entry) {
@@ -144,7 +149,7 @@ export class Skylink {
       Path: this.prefix + path,
       Input: input,
       Dest: outputPath ? (this.prefix + outputPath) : '',
-    }).then(x => x.Output);
+    });
   }
 
   copy(path, dest) {
@@ -322,19 +327,21 @@ export class Skylink {
   //////////////////////////////////////
   // The actual transport
 
-  startTransport() {
+  async startTransport() {
     switch (this.protocol) {
       case 'ws':
-        this.transport = new SkylinkWsTransport(this.endpoint, this.stats, true);
+        this.transport = new WebsocketSkylinkClient(this.endpoint);
         break;
       case 'http':
-        this.transport = new SkylinkHttpTransport(this.endpoint, this.stats, true);
+        this.transport = new StatelessHttpSkylinkClient(this.endpoint);
         break;
       default:
         alert(`Unknown Skylink transport protocol "${this.protocol}"`);
         return
     }
-    return this.transport.start();
+    this.donePromise = new Promise(r => this.transport.shutdownHandlers.push(r));
+    await this.transport.ready;
+    return this.transport;
   }
 
   stopTransport() {
@@ -342,13 +349,13 @@ export class Skylink {
     this.transport = null;
   }
 
-  exec(request) {
+  async exec(request) {
     if (!this.transport) {
       console.log("No Skylink transport is started, can't exec", request);
-      return Promise.reject("The Skylink transport is not started");
+      return Promise.reject(new Error("The Skylink transport is not started"));
     } else {
       this.stats.ops++;
-      return this.transport.exec(request);
+      return this.transport.performOp(request);
     }
   }
 }

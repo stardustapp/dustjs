@@ -207,12 +207,12 @@ export class SkylinkMount {
     this.updateStatus();
 
     this.skylink = new Skylink(this.path, this.endpoint, this.stats);
-    this.skylink.transport.connPromise.then(() => {
+    this.skylink.readyPromise.then(() => {
       this.status = 'Connected';
       this.updateStatus();
     });
 
-    this.skylink.transport.donePromise.then(() => {
+    this.skylink.donePromise.then(() => {
       this.status = 'Offline';
       this.skylink = null;
       this.updateStatus();
