@@ -10,6 +10,7 @@ const myHostname = require('os').hostname();
 class ServiceMgmt {
   constructor(firestore) {
     this.frameListeners = new Map;
+    this.unmappedResponses = new Map;
 
     this.readyFrames = firestore
       .collectionGroup('frames')
@@ -18,20 +19,9 @@ class ServiceMgmt {
 
     this.stopSnapsCb = this.readyFrames.onSnapshot(async querySnap => {
       for (const docChange of querySnap.docChanges()) {
-        if (docChange.type !== 'added') continue;
-        Datadog.countFireOp('read', docChange.doc.ref, {fire_op: 'watched', method: 'services/readyFrames'});
-
-        console.log('received ready frame', docChange.doc.get('request.Op'), '- ok', docChange.doc.get('response.Ok'));
-
-        const listener = this.frameListeners.get(docChange.doc.ref.path);
-        console.log('ready frame listener:', listener);
-        if (listener) {
-          listener(docChange.doc.get('response'));
-          this.frameListeners.delete(docChange.doc.ref.path);
+        if (docChange.type === 'added') {
+          this.processFulfilledFrameDocument(docChange.doc);
         }
-
-        Datadog.countFireOp('write', docChange.doc.ref, {fire_op: 'delete', method: 'services/readyFrames'});
-        await docChange.doc.ref.delete();
       }
     });
 
@@ -45,6 +35,25 @@ class ServiceMgmt {
         return instance;
       },
     });
+  }
+
+  async processFulfilledFrameDocument(docSnap) {
+    const docPath = docSnap.ref.path;
+    Datadog.countFireOp('read', docSnap.ref, {fire_op: 'watched', method: 'services/readyFrames'});
+
+    console.log('received ready frame', docSnap.get('request.Op'), '- ok', docSnap.get('response.Ok'));
+
+    const listener = this.frameListeners.get(docPath);
+    if (listener) {
+      listener(docSnap.get('response'));
+      this.frameListeners.delete(docPath);
+    } else {
+      console.log("WARN: received response for unmapped frame", docPath, "- caching response in hope of eventual consistency");
+      this.unmappedResponses.set(docPath, docSnap.get('response'));
+    }
+
+    Datadog.countFireOp('write', docSnap.ref, {fire_op: 'delete', method: 'services/readyFrames'});
+    await docSnap.ref.delete();
   }
 
   getServices(collRef) {
@@ -260,10 +269,22 @@ class ProxiedServiceClient extends SkylinkClient {
         Datadog.count('service.timeout', 1, {service_id: this.service.svcId});
         reject(new Error(`UserService#volley times out at 5 seconds`));
       }, 5000);
-      this.service.serviceMgmt.frameListeners.set(newDoc.path, function (x) {
+
+      // There's a race condition where a fast service proxy
+      // can fulfill our frame before we can even confirm it was stored!
+      // So we check if we got the response while the store was happening.
+      // If not we register for the inbound frame as you'd expect.
+      const earlyResp = this.service.serviceMgmt.unmappedResponses.get(newDoc.path);
+      if (earlyResp) {
+        this.service.serviceMgmt.unmappedResponses.delete(newDoc.path);
         clearTimeout(timeout);
         resolve(x);
-      });
+      } else {
+        this.service.serviceMgmt.frameListeners.set(newDoc.path, function (x) {
+          clearTimeout(timeout);
+          resolve(x);
+        });
+      }
     });
 
     return this.decodeOutput({
