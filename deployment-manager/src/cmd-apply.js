@@ -16,8 +16,7 @@ exports.builder = yargs => yargs
   .default('only', ['firebase', 'backend', 'services'])
   .default('backend-image-tag', 'latest')
   .default('deployments-dir', DUSTJS_DEPLOYMENTS_DIR)
-  .default('client-lib-dir', '/home/dan/Code/@stardustapp/dustjs/client')
-  .default('client-vue-lib-dir', '/home/dan/Code/@stardustapp/dustjs/client-vue')
+  .default('dustjs-path', '/home/dan/Code/@stardustapp/dustjs')
   .default('apps-path', DUSTJS_APPS_PATH)
 ;
 
@@ -31,40 +30,36 @@ exports.handler = async argv => {
   await project.fetchMissingPackages();
   console.log();
 
-  // let clientLibs = new Array;
+  if (argv.only.includes('firebase') && argv['dustjs-path']) {
+    console.log(`==>`, `Checking for local @dustjs modules to package directly`);
+    Runner.registerKnownDir(argv['dustjs-path'], '$DustJsCheckout');
 
-  // TODO: fetch these from unpkg (cache locally?) if no checkout
-  // TODO: if checkout... then run a build?
-  if (argv.only.includes('client-library')) {
-    console.log(`==> Building @dustjs/client locally`);
-    const path = argv['client-lib-dir'];
-    const jsFile = 'dustjs-client.umd.js';
-    clientLibs.push(join(path, 'dist', jsFile));
-    clientLibs.push(join(path, 'dist', jsFile+'.map'));
+    for (const [library, _] of project.libraryDirs) {
+      if (!library.npm_module.startsWith('@dustjs/')) continue;
 
-    const output = await runner.execUtility(`npm`, [`run`, `build`], {
-      cwd: join(path),
-    });
-    const createdLine = output.stdout.split('\n')
-      .find(str => str.includes('created') && str.includes(jsFile));
-    console.log(`-->`, createdLine || 'rollup completed weirdly!');
-    console.log();
-  }
-  if (argv.only.includes('client-vue')) {
-    console.log(`==> Building @dustjs/client-vue locally`);
-    const path = argv['client-vue-lib-dir'];
-    const jsFile = 'dustjs-client-vue.umd.js';
-    clientLibs.push(join(path, 'dist', jsFile));
-    clientLibs.push(join(path, 'dist', jsFile+'.map'));
-    const cssFile = 'dustjs-client-vue.css';
-    clientLibs.push(join(path, 'dist', cssFile));
+      const baseName = library.npm_module.split('/')[1];
+      const srcPath = join(argv['dustjs-path'], baseName)
+      const exists = await fs.access(join(srcPath, 'package.json'))
+        .then(() => true, () => false);
+      if (!exists) {
+        console.log('!-> Skipping local library', library.npm_module, `because it wasn't found at`, srcPath);
+        continue;
+      }
 
-    const output = await runner.execUtility(`npm`, [`run`, `build`], {
-      cwd: join(path),
-    });
-    const createdLine = output.stdout.split('\n')
-      .find(str => str.includes('created') && str.includes(jsFile));
-    console.log(`-->`, createdLine || 'rollup completed weirdly!');
+      console.log(`--> Building ${library.npm_module} locally`);
+
+      const output = await runner.execUtility(`npm`, [`run`, `build`], {
+        cwd: srcPath,
+      });
+      const createdLine = output.stderr.split('\n')
+        .find(str => str.includes('created') && str.includes('.umd.js'));
+      if (createdLine) {
+        project.libraryDirs.set(library, srcPath);
+        console.log(`   `, createdLine);
+      } else {
+        console.log('!-> Skipping local library', library.npm_module, `because the build didn't work right`);
+      }
+    }
     console.log();
   }
 

@@ -33,66 +33,43 @@ exports.handler = async argv => {
   await project.fetchMissingPackages();
   console.log();
 
-  // let clientLibs = new Array;
-  if (argv.only.includes('client-library')) {
-    console.log(`==> Preparing @dustjs/client livecompile`);
-    const path = join(argv['dustjs-path'], 'client');
-    const jsFile = 'dustjs-client.umd.js';
-    // clientLibs.push(join(path, 'dist', jsFile));
-    // clientLibs.push(join(path, 'dist', jsFile+'.map'));
-    project.libraryDirs.set(TODO, path);
+  if (argv.only.includes('firebase') && argv['dustjs-path']) {
+    console.log(`==>`, `Checking for local @dustjs modules to build directly`);
+    Runner.registerKnownDir(argv['dustjs-path'], '$DustJsCheckout');
 
-    const clientBuild = runner.launchBackgroundProcess('npm', {
-      args: ['run', 'dev'],
-      cwd: join(path),
-    });
-    await clientBuild.perLine((line, resolve) => {
-      // TODO: 'waiting for changes' only logged when in pty
-      if (line.includes('waiting for changes')) {
-        resolve(true);
-      } else if (line.includes('created') && line.includes(jsFile)) {
-        console.log(`   `, chalk.magenta('rollup:'), line);
-        resolve(line);
-      } else if (line.includes('!')) {
-        if (argv['send-notifs'] && line.includes('[!]')) {
-          execa('notify-send', ['-a', 'dust-deployer serve', 'rollup build error', line]);
-        }
-        console.log(`   `, chalk.magenta('rollup:'), line);
+    for (const [library, _] of project.libraryDirs) {
+      if (!library.npm_module.startsWith('@dustjs/')) continue;
+
+      const baseName = library.npm_module.split('/')[1];
+      const srcPath = join(argv['dustjs-path'], baseName)
+      const exists = await fs.access(join(srcPath, 'package.json'))
+        .then(() => true, () => false);
+      if (!exists) {
+        console.log('!-> Skipping local library', library.npm_module, `because it wasn't found at`, srcPath);
+        continue;
       }
-    });
-    console.log(`-->`, `Compiled @dustjs/client`);
-    console.log();
-  }
 
-  if (argv.only.includes('client-vue')) {
-    console.log(`==> Preparing @dustjs/client-vue livecompile`);
-    const path = join(argv['dustjs-path'], 'client-vue');
-    const jsFile = 'dustjs-client-vue.umd.js';
-    // clientLibs.push(join(path, 'dist', jsFile));
-    // clientLibs.push(join(path, 'dist', jsFile+'.map'));
-    // const cssFile = 'dustjs-client-vue.css';
-    // clientLibs.push(join(path, 'dist', cssFile));
-    project.libraryDirs.set(TODO, path);
-
-    const clientBuild = runner.launchBackgroundProcess('npm', {
-      args: ['run', 'dev'],
-      cwd: join(path),
-    });
-    await clientBuild.perLine((line, resolve) => {
-      // TODO: 'waiting for changes' only logged when in pty
-      if (line.includes('waiting for changes')) {
-        resolve(true);
-      } else if (line.includes('created') && line.includes(jsFile)) {
-        console.log(`   `, chalk.magenta('rollup:'), line);
-        resolve(line);
-      } else if (line.includes('!')) {
-        if (argv['send-notifs'] && line.includes('[!]')) {
-          execa('notify-send', ['-a', 'dust-deployer serve', 'rollup build error', line]);
+      console.log(`--> Starting ${library.npm_module} live-compile from local checkout`);
+      const libBuild = runner.launchBackgroundProcess('npm', {
+        args: ['run', 'dev'],
+        cwd: srcPath,
+      });
+      await libBuild.perLine((line, resolve) => {
+        // TODO: 'waiting for changes' only logged when in pty
+        if (line.includes('waiting for changes')) {
+          resolve(true);
+        } else if (line.includes('created') && line.includes('.umd.js')) {
+          console.log(`   `, chalk.magenta('rollup:'), line);
+          resolve(line);
+        } else if (line.includes('!')) {
+          if (argv['send-notifs'] && line.includes('[!]')) {
+            execa('notify-send', ['-a', 'dust-deployer serve', 'rollup build error', line]);
+          }
+          console.log(`   `, chalk.magenta('rollup:'), line);
         }
-        console.log(`   `, chalk.magenta('rollup:'), line);
-      }
-    });
-    console.log(`-->`, `Compiled @dustjs/client-vue`);
+      });
+      project.libraryDirs.set(library, srcPath);
+    }
     console.log();
   }
 
