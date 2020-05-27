@@ -1,11 +1,12 @@
 const chalk = require('chalk');
 const execa = require('execa');
+const process = require('process');
 
 const KnownDirs = new Array;
 
 class ServiceRunner {
-  constructor(defaultOpts={}) {
-    this.defaultOpts = defaultOpts;
+  constructor(cwd) {
+    this.cwd = cwd || process.cwd();
 
     this.processes = new Array;
     this.tempDirs = new Array;
@@ -16,10 +17,13 @@ class ServiceRunner {
   setDefaultWorkDir(workDir) {
     console.log(`   `,
       chalk.gray.bold('cd'),
-      chalk.gray(workDir));
-    this.defaultOpts.cwd = workDir;
+      chalk.gray(this.formatArgs([workDir])));
+    this.cwd = workDir;
   }
   static registerKnownDir(prefix, variable) {
+    console.log(`   `,
+      chalk.blue(variable.slice(1))
+      +chalk.gray('='+prefix));
     KnownDirs.push([prefix, variable]);
   }
   formatArgs(args) {
@@ -28,6 +32,8 @@ class ServiceRunner {
         .find(([prefix]) => arg.startsWith(prefix));
       if (knownDir) {
         arg = chalk.blue(knownDir[1])+arg.slice(knownDir[0].length);
+      } else if (arg.startsWith(this.cwd)) {
+        arg = chalk.blue('$PWD')+arg.slice(this.cwd.length);
       }
       if (arg.includes(' ')) {
         return `"${arg}"`;
@@ -60,7 +66,7 @@ class ServiceRunner {
       await new Promise(r => process.stdout.write(chalk.blue(` # ${stdout}`), r));
 
       if (andSwitch) {
-        this.defaultOpts.cwd = stdout;
+        this.cwd = stdout;
       }
       return stdout;
     } finally {
@@ -71,16 +77,17 @@ class ServiceRunner {
   // Generic execution
 
   async execUtility(cmd, args, opts={}) {
-    if (opts.cwd && opts.cwd !== this.defaultOpts.cwd) {
+    if (opts.cwd && opts.cwd !== this.cwd) {
       console.log(`   `,
         chalk.gray.bold('cd'),
-        chalk.gray(opts.cwd));
+        chalk.gray(this.formatArgs([opts.cwd])));
     }
     await new Promise(r => process.stdout.write(
       `    ${chalk.gray.bold(cmd)} ${chalk.gray(this.formatArgs(args))}`, r));
     try {
       return await execa(cmd, args, {
-        ...this.defaultOpts, ...opts,
+        cwd: this.cwd,
+        ...opts,
       });
     } finally {
       await new Promise(r => process.stdout.write(`\n`, r));
@@ -88,10 +95,10 @@ class ServiceRunner {
   }
 
   launchBackgroundProcess(name, {args=[], ...opts}) {
-    if (opts.cwd && opts.cwd !== this.defaultOpts.cwd) {
+    if (opts.cwd && opts.cwd !== this.cwd) {
       console.log(`   `,
         chalk.gray.bold('cd'),
-        chalk.gray(opts.cwd));
+        chalk.gray(this.formatArgs([opts.cwd])));
     }
     console.log(`   `,
       chalk.gray.bold(name),
@@ -102,7 +109,7 @@ class ServiceRunner {
     const proc = execa(name, args, {
       all: true,
       buffer: false,
-      ...this.defaultOpts,
+      cwd: this.cwd,
       ...opts,
     });
     this.addBackgroundProcess(proc);
@@ -144,7 +151,10 @@ class ServiceRunner {
       .map(p => p.catch(() => {}));
 
     for (const process of this.processes) {
-      console.log('   ', chalk.gray.bold('kill'), chalk.gray(process.pid));
+      console.log('   ',
+        chalk.gray.bold('kill'),
+        chalk.gray(process.pid),
+        chalk.blue(`# ${this.formatArgs(process.spawnargs)}`));
       process.cancel();
     }
     await Promise.all(processPromises);
