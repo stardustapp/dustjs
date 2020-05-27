@@ -39,7 +39,7 @@ export class ReversedSkylinkClient extends SkylinkClient {
     return new Promise((resolve, reject) => {
       this.waitingReceivers.push({resolve, reject});
       this.server.postMessage(request);
-    }).then(this.transformResp);
+    });
   }
 
   // triggered by real-client packets intended for us (via receiveFrame)

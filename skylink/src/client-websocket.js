@@ -76,8 +76,7 @@ export class WebsocketSkylinkClient extends SkylinkClient {
       .then(() => new Promise((resolve, reject) => {
         this.waitingReceivers.push({resolve, reject});
         this.postMessage(request);
-      }))
-      .then(this.transformResp);
+      }));
   }
 
   // triggered for packets from the server
