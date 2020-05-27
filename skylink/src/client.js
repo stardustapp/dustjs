@@ -32,8 +32,43 @@ export class SkylinkClient {
     throw new Error(`#TODO: impl volley() to do something lol`);
   }
 
+  // Like volley(), except it checks the response and returns Output directly
+  /*async*/ performOp(request) {
+    return this.volley(request).then(response => {
+      switch (response.Ok) {
+        case true:
+          return response.Output;
+        case false:
+          const failErr = new Error(this.makeRejectionMessage(request, output));
+          failErr.response = response;
+          return Promise.reject(failErr);
+        default:
+          console.log('ERR: Bad server response, missing "Ok":', response);
+          const err = new Error(`BUG: Skylink server response didn't have 'Ok'`);
+          err.response = response;
+          return Promise.reject(err);
+      }
+    });
+  }
+
   /////////////////////////////
   // Protected API for implementers
+
+  makeRejectionMessage(request, output) {
+    const outputType = output ? output.Type : 'None';
+    let errorMessage = `"${request.Op}" operation wasn't Ok`;
+    switch (outputType) {
+      case 'String':
+        return `${errorMessage}: ${output.StringValue}`;
+      case 'Error':
+        console.error(`TODO: decode wire Error output:`, output);
+        return `${errorMessage}: ${output.StringValue}`;
+      case 'None':
+        return `${errorMessage}, and no error was returned!`;
+      default:
+        return `${errorMessage}, and returned odd output type "${outputType}"`;
+    }
+  }
 
   encodeFrame(frame) {
     return JSON.stringify({ ...frame,
