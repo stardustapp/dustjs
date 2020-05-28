@@ -10,20 +10,8 @@ class FirestoreRegionWalker {
       tracker: this.tracker,
     });
 
-    // this.appId = appId;
-    // this.regionId = regionId;
-
     this.stack = new Array;
     this.current = rootFrame;
-
-    // console.log('hello', rootRef.path, appId, regionId, rootPaths)
-
-
-    // this.stack = new Array;
-    // this.current = new FirestoreRegionFrame({
-    //
-    //   paths: rootPaths,
-    // });
   }
 
   pushFrame(frame) {
@@ -41,15 +29,14 @@ class FirestoreRegionWalker {
 
     const newStack = this.stack.slice();
     let currFrame = this.current;
-    while (path.count() > 0) {
-      if (typeof currFrame.selectPath !== 'function') throw new Error(
-        `BUG: ${currFrame.constructor.name} missing selectPath`);
-      const {nextFrame, remainingPath} = currFrame.selectPath(path);
-      // console.log(path, nextFrame, remainingPath);
+    for (const name of path.names) {
+      if (typeof currFrame.selectName !== 'function') throw new Error(
+        `BUG: ${currFrame.constructor.name} missing selectName`);
+      const nextFrame = currFrame.selectName(name);
+      // console.log(path, name, nextFrame);
       if (nextFrame) {
         newStack.push(currFrame);
         currFrame = nextFrame;
-        path = remainingPath;
       } else {
         return false;
       }
