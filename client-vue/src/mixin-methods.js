@@ -1,9 +1,9 @@
 export function skyStoreString(path, value) {
-  return promise.then(x => x.putString('/'+path, value));
+  return skylinkP.then(x => x.putString('/'+path, value));
 };
 
 export function skyUnlink(path) {
-  return promise.then(x => x.unlink('/'+path));
+  return skylinkP.then(x => x.unlink('/'+path));
 };
 
 // TODO: the sidebar should handle this itself probably, close-on-navigate
