@@ -278,7 +278,7 @@ class ProxiedServiceClient extends SkylinkClient {
       if (earlyResp) {
         this.service.serviceMgmt.unmappedResponses.delete(newDoc.path);
         clearTimeout(timeout);
-        resolve(x);
+        resolve(earlyResp);
       } else {
         this.service.serviceMgmt.frameListeners.set(newDoc.path, function (x) {
           clearTimeout(timeout);
