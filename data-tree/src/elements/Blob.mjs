@@ -4,7 +4,11 @@ export class Blob extends BaseElement {
   constructor(mimeType, encoding) {
     super();
     this.mimeType = mimeType;
-    this.encoding = encoding || (mimeType.startsWith('text/') ? 'utf-8' : 'binary');
+    this.encoding =
+      encoding ? encoding
+      : !mimeType ? null
+      : mimeType.startsWith('text/') ? 'utf-8'
+      : 'binary';
   }
 
   static family = "Blob";
