@@ -299,11 +299,13 @@ class FirestoreDocument extends FirestoreReference {
       this.tallyWrite('delete', {method: 'document/commit'});
     } else if (cleared.join(',') === '&') {
       await this._docRef.set(doc);
-      IMMUTABLE_DOC_CACHE.set(this._docRef.path, {
-        id: this._docRef.id,
-        path: this._docRef.path,
-        data() { return doc; },
-      });
+      if (this.flags.immutable) {
+        IMMUTABLE_DOC_CACHE.set(this._docRef.path, {
+          id: this._docRef.id,
+          path: this._docRef.path,
+          data() { return doc; },
+        });
+      }
       this.tallyWrite('set', {method: 'document/commit'});
     } else if (this.flags.immutable) {
       // todo: also protect against replacements, not just merges
