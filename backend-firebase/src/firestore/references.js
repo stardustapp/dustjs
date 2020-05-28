@@ -279,7 +279,22 @@ class FirestoreDocument extends FirestoreReference {
     }
 
     // console.log({doc, mergeFields, removed, cleared});
-    if (removed.join(',') === '&') {
+
+    if (this.flags.newDoc) {
+      if (removed.join(',') === '&') throw new Error(
+        `BUG: Tried deleting a newDoc, what?`);
+
+      // the doc ID is assigned by #add()
+      const newRef = await this._docRef.parent.add(doc);
+      this.tallyWrite('add', {method: 'document/commit'});
+
+      const {newDoc, ...newFlags} = this.flags;
+      return new FirestoreDocument({
+        ref: newRef,
+        data() { return doc; },
+      }, this._tracker, newFlags);
+
+    } else if (removed.join(',') === '&') {
       await this._docRef.delete();
       this.tallyWrite('delete', {method: 'document/commit'});
     } else if (cleared.join(',') === '&') {

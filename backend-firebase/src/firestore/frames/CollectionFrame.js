@@ -1,4 +1,5 @@
 const {constructFrame} = require('./_factory.js');
+const {StringEntry} = require('@dustjs/skylink');
 
 class CollectionFrame extends require('./BaseFrame.js') {
   constructor(name, nodeSpec, collLens) {
@@ -19,6 +20,14 @@ class CollectionFrame extends require('./BaseFrame.js') {
   selectName(name) {
     const document = this.collLens.selectDocument(name);
     return constructFrame(name, this.nodeSpec.inner, document);
+  }
+
+  async invoke_create(input) {
+    const tempLens = this.collLens.selectDocument('_', {newDoc: true});
+    const tempFrame = constructFrame('new', this.nodeSpec.inner, tempLens);
+    tempFrame.putLiteral(input);
+    const newDoc = await tempLens.commitChanges();
+    return new StringEntry('id', newDoc.id);
   }
 
   putLiteral(input) {

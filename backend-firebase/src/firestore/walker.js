@@ -71,6 +71,20 @@ class FirestoreRegionWalker {
           `TODO: put node "${walker.current.constructor.name}"`);
       },
 
+      async invoke(input) {
+        // we actually walk up one frame because funcs have an unary name
+        if (walker.stack.length < 1) throw new Error(
+          `Cannot invoke the walker root`);
+        const targetFrame = walker.stack.slice(-1)[0];
+        const targetFunc = `invoke_${walker.current.name}`;
+
+        if (typeof targetFrame[targetFunc] === 'function') {
+          return await targetFrame[targetFunc](input);
+          // await walker.tracker.commitChanges();
+        } else throw new Error(
+          `Cannot invoke "${walker.current.name}" on "${targetFrame.name}"`);
+      },
+
       async enumerate(enumer) {
         switch (true) {
 
