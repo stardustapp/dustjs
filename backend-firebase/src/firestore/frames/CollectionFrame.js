@@ -18,6 +18,9 @@ class CollectionFrame extends require('./BaseFrame.js') {
   }
 
   selectName(name) {
+    // __...__ is reserved by Firestore
+    if (name.startsWith('__') && name.endsWith('__')) return false;
+
     const document = this.collLens.selectDocument(name);
     return constructFrame(name, this.nodeSpec.inner, document);
   }
@@ -48,7 +51,7 @@ class CollectionFrame extends require('./BaseFrame.js') {
     // second: write everything
     for (const entry of input.Children) {
       const frame = this.selectName(entry.Name);
-      frame.putLiteral(entry);
+      if (frame) frame.putLiteral(entry);
     }
     console.log('wrote', input.Children.length, 'entries into', this.collLens);
   }
