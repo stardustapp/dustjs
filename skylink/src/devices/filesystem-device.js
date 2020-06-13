@@ -1,5 +1,4 @@
 import path from 'path';
-import fs from 'fs/promises';
 
 export class FilesystemDevice {
   constructor(fsRootPath) {
@@ -28,6 +27,7 @@ export class FilesystemEntry {
   }
 
   async get() {
+    const fs = await import('fs/promises');
     const stat = await fs.stat(this.fsPath);
     switch (true) {
 
