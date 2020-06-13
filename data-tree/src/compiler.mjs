@@ -31,6 +31,9 @@ export class Compiler {
       case childSpec instanceof BaseElement:
         return childSpec.makeNode(this);
 
+      case childSpec.constructor === Symbol:
+        return new Elements.Meta(childSpec.description).makeNode(this);
+
       case childSpec.constructor === Object:
         return new Elements.Document(childSpec).makeNode(this);
 

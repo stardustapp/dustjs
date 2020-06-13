@@ -1,6 +1,6 @@
 {
   "name": "@dustjs/data-tree",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Node types supporting an object model to express trees of arbitrary data structures.",
   "main": "src/index.mjs",
