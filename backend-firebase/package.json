@@ -1,6 +1,6 @@
 {
   "name": "@dustjs/backend-firebase",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "",
   "main": "src/app.js",
   "scripts": {
@@ -9,9 +9,9 @@
   "author": "Daniel Lamando",
   "license": "ISC",
   "dependencies": {
-    "@dustjs/data-tree": "^0.1.0",
+    "@dustjs/data-tree": "^0.1.1",
     "@dustjs/server-koa": "^0.2.0",
-    "@dustjs/skylink": "^0.3.2",
+    "@dustjs/skylink": "^0.3.4",
     "firebase-admin": "^8.11.0",
     "moment": "^2.25.3",
     "node-fetch": "^2.6.0"
