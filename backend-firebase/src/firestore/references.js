@@ -3,6 +3,8 @@ const {encode} = require('querystring');
 
 const {Datadog} = require('../lib/datadog.js');
 
+const NewDocSymbol = Symbol.for('newDoc');
+
 const IMMUTABLE_DOC_CACHE = new Map;
 setInterval(() => {
   Datadog.gauge('firestore.cached_docs', IMMUTABLE_DOC_CACHE.size);
@@ -64,7 +66,13 @@ class FirestoreCollection extends FirestoreReference {
     this.collPath = collRef.path;
   }
   selectDocument(id, flags={}) {
-    return new FirestoreDocument(this._collRef.doc(id), this._tracker, flags);
+    if (id === NewDocSymbol) {
+      return new FirestoreDocument(this._collRef.doc(), this._tracker, {
+        newDoc: true,
+        ...flags});
+    } else {
+      return new FirestoreDocument(this._collRef.doc(id), this._tracker, flags);
+    }
   }
 
   async getAllSnapshots() {
@@ -258,8 +266,10 @@ class FirestoreDocument extends FirestoreReference {
       if (keyStack.length > 0) {
         switch (op) {
           case 'remove':
-            top[keyStack.slice(-1)[0]] = FieldValue.delete();
-            removed.push(encode(keyStack)+'&');
+            if (!parentCleared) {
+              top[keyStack.slice(-1)[0]] = FieldValue.delete();
+              removed.push(encode(keyStack)+'&');
+            }
             break;
           case 'clear':
             top[keyStack.slice(-1)[0]] = null;
@@ -285,14 +295,15 @@ class FirestoreDocument extends FirestoreReference {
         `BUG: Tried deleting a newDoc, what?`);
 
       // the doc ID is assigned by #add()
-      const newRef = await this._docRef.parent.add(doc);
+      // const newRef = await this._docRef.parent.add(doc);
+      await this._docRef.set(doc);
       this.tallyWrite('add', {method: 'document/commit'});
 
-      const {newDoc, ...newFlags} = this.flags;
-      return new FirestoreDocument({
-        ref: newRef,
-        data() { return doc; },
-      }, this._tracker, newFlags);
+      // const {newDoc, ...newFlags} = this.flags;
+      // return new FirestoreDocument({
+      //   ref: newRef,
+      //   data() { return doc; },
+      // }, this._tracker, newFlags);
 
     } else if (removed.join(',') === '&') {
       await this._docRef.delete();

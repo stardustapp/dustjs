@@ -26,11 +26,11 @@ class CollectionFrame extends require('./BaseFrame.js') {
   }
 
   async invoke_create(input) {
-    const tempLens = this.collLens.selectDocument('_', {newDoc: true});
-    const tempFrame = constructFrame('new', this.nodeSpec.inner, tempLens);
-    tempFrame.putLiteral(input);
-    const newDoc = await tempLens.commitChanges();
-    return new StringEntry('id', newDoc.id);
+    const newLens = this.collLens.selectDocument(Symbol.for('newDoc'));
+    const newFrame = constructFrame(newLens.id, this.nodeSpec.inner, newLens);
+    newFrame.putLiteral(input);
+    await newLens.commitChanges();
+    return new StringEntry('id', newLens.id);
   }
 
   putLiteral(input) {

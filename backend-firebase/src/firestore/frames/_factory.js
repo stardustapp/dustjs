@@ -8,6 +8,7 @@ const constructableFamilies = [
   'Map',
   'List',
   'Blob',
+  'Meta',
 ];
 
 exports.constructFrame = function constructFrame(name, nodeSpec, lens) {
