@@ -76,7 +76,7 @@ export class SkylinkClientEntry {
     });
 
     // transclude the remote enumeration
-    enumer.visitEnumeration(response.Output);
+    enumer.visitEnumeration(response);
   }
 
   put(value) {
