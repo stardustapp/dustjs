@@ -45,8 +45,8 @@ class MapFrame extends require('./BaseFrame.js') {
 
     this.docLens.setData({});
     for (const child of input.Children) {
-      const subLens = this.docLens.selectField([child]);
-      const frame = constructFrame(child, this.nodeSpec.inner, subLens);
+      const subLens = this.docLens.selectField([child.Name]);
+      const frame = constructFrame(child.Name, this.nodeSpec.inner, subLens);
       frame.putLiteral(child);
     }
   }
