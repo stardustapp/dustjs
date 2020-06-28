@@ -1,0 +1,15 @@
+{
+  "name": "@dustjs/client-automaton",
+  "version": "0.1.0",
+  "description": "",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Daniel Lamando",
+  "license": "MIT",
+  "dependencies": {
+    "@dustjs/skylink": "^0.3.5"
+  }
+}
