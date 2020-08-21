@@ -122,8 +122,17 @@ exports.handler = async argv => {
       }
     }
 
+    const targets = ['hosting'];
+
+    // check if we have functions
+    const funcsExist = await fs.access(join('firebase', 'functions'))
+      .then(() => true, () => false);
+    if (funcsExist) {
+      targets.push('functions');
+    }
+
     console.log(`==> ${chalk.magenta.bold('Deploying')} to Firebase Hosting...`);
-    const args = ['deploy', '--only', 'hosting', '--public', 'public-generated'];
+    const args = ['deploy', '--only', targets.join(','), '--public', 'public-generated'];
     const fireDeploy = await runner.execUtility(`firebase`, args, {
       cwd: join(process.cwd(), 'firebase'),
     });
