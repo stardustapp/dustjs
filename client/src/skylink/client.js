@@ -243,10 +243,16 @@ export class Skylink {
     switch (obj.constructor) {
       case String:
         return Skylink.String(name, obj);
+      case Date:
+        return Skylink.String(name, obj.toISOString());
       case Object:
         const children = Object.keys(obj)
-          .map(x => Skylink.toEntry(x, obj[x]));
+          .map(x => Skylink.toEntry(x, obj[x]))
+          .filter(x => x);
         return Skylink.Folder(name, children);
+      case Array:
+        return Skylink.Folder(name, obj
+          .map((x, idx) => Skylink.toEntry(`${idx+1}`, x)));
       default:
         throw new Error(`Skylink can't toEntry a ${obj.constructor}`);
     }
