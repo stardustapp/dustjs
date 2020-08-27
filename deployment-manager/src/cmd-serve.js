@@ -28,6 +28,27 @@ exports.handler = async argv => {
   const loader = new Loader(process.cwd());
   const runner = new Runner();
 
+  function startRunningNpmBuild(modulePath) {
+    const libBuild = runner.launchBackgroundProcess('npm', {
+      args: ['run', 'dev'],
+      cwd: modulePath,
+    });
+    return libBuild.perLine((line, resolve) => {
+      // TODO: 'waiting for changes' only logged when in pty
+      if (line.includes('waiting for changes')) {
+        resolve(true);
+      } else if (line.includes('created') && line.includes('.umd.js')) {
+        console.log(`   `, chalk.magenta('rollup:'), line);
+        resolve(line);
+      } else if (line.includes('!')) {
+        if (argv['send-notifs'] && line.includes('[!]')) {
+          execa('notify-send', ['-a', 'dust-deployer serve', 'rollup build error', line]);
+        }
+        console.log(`   `, chalk.magenta('rollup:'), line);
+      }
+    });
+  }
+
   console.log();
   const project = await loader.loadProjectConfig(argv);
   await project.fetchMissingPackages();
@@ -38,10 +59,12 @@ exports.handler = async argv => {
     Runner.registerKnownDir(argv['dustjs-path'], '$DustJsCheckout');
 
     for (const [library, _] of project.libraryDirs) {
-      if (!library.npm_module.startsWith('@dustjs/')) continue;
+      if (!library.npm_module.startsWith('@dustjs/') && !library.source) continue;
 
       const baseName = library.npm_module.split('/')[1];
-      const srcPath = join(argv['dustjs-path'], baseName)
+      const srcPath = library.source
+        ? join(process.cwd(), library.source)
+        : join(argv['dustjs-path'], baseName);
       const exists = await fs.access(join(srcPath, 'package.json'))
         .then(() => true, () => false);
       if (!exists) {
@@ -50,24 +73,7 @@ exports.handler = async argv => {
       }
 
       console.log(`--> Starting ${library.npm_module} live-compile from local checkout`);
-      const libBuild = runner.launchBackgroundProcess('npm', {
-        args: ['run', 'dev'],
-        cwd: srcPath,
-      });
-      await libBuild.perLine((line, resolve) => {
-        // TODO: 'waiting for changes' only logged when in pty
-        if (line.includes('waiting for changes')) {
-          resolve(true);
-        } else if (line.includes('created') && line.includes('.umd.js')) {
-          console.log(`   `, chalk.magenta('rollup:'), line);
-          resolve(line);
-        } else if (line.includes('!')) {
-          if (argv['send-notifs'] && line.includes('[!]')) {
-            execa('notify-send', ['-a', 'dust-deployer serve', 'rollup build error', line]);
-          }
-          console.log(`   `, chalk.magenta('rollup:'), line);
-        }
-      });
+      await startRunningNpmBuild(srcPath);
       project.libraryDirs.set(library, srcPath);
     }
     console.log();
@@ -144,14 +150,26 @@ exports.handler = async argv => {
     for (const app of project.resolvedApps) {
       const webBundle = (app.appConfig.bundles || [])
         .find(x => x.type === 'static html');
-      if (!webBundle) {
-        console.log('!-> WARN: App', app.id, 'lacks a static HTML bundle');
+      if (webBundle) {
+        await runner.execUtility('ln', ['-s',
+          join(app.directory, webBundle.source),
+          join(targetDir, app.id)]);
         continue;
       }
 
-      await runner.execUtility('ln', ['-s',
-        join(app.directory, webBundle.source),
-        join(targetDir, app.id)]);
+      const singleSpaBundle = (app.appConfig.bundles || [])
+        .find(x => x.type === 'single-spa tenant');
+      if (singleSpaBundle) {
+        console.log(`--> Starting ${app.id} live-compile from app directory`);
+        await startRunningNpmBuild(join(app.directory, singleSpaBundle.source));
+        // link the dist subfolder
+        await runner.execUtility('ln', ['-s',
+          join(app.directory, singleSpaBundle.source, 'dist'),
+          join(targetDir, app.id)]);
+        continue;
+      }
+
+      console.log('!-> WARN: App', app.id, 'lacks a static HTML bundle');
     }
 
     // js libraries

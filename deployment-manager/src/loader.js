@@ -30,18 +30,20 @@ class DustProject {
     // a bit convoluted since filter doesn't work w/ async
     const missingLibs = (await Promise.all((this
       .projectConfig.hosted_libraries || [])
-      .map(lib => fs
-        .access(join(cacheDir,
-          lib.npm_module, lib.min_version))
-        .then(() => {
-          this.libraryDirs.set(lib, join(cacheDir,
-            lib.npm_module, lib.min_version));
-          return false;
-        }, err => {
-           // return lib config when not found in cache
-          if (err.code === 'ENOENT') return lib;
-          throw err;
-        }))))
+      .map(lib => lib.source
+        ? (this.libraryDirs.set(lib, lib.source), false)
+        : fs
+          .access(join(cacheDir,
+            lib.npm_module, lib.min_version))
+          .then(() => {
+            this.libraryDirs.set(lib, join(cacheDir,
+              lib.npm_module, lib.min_version));
+            return false;
+          }, err => {
+            // return lib config when not found in cache
+            if (err.code === 'ENOENT') return lib;
+            throw err;
+          }))))
       .filter(x => x);
     if (missingLibs.length === 0) {
       console.log('-->', `All libraries are already cached`);
