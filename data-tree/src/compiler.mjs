@@ -2,7 +2,7 @@ import * as util from 'util';
 
 import * as Elements from './elements/_index.mjs';
 import {TreeNode, BaseElement} from './elements/_base.mjs';
-import {parseAbsolutePath} from './path-parser.js';
+import {parseAbsolutePath} from './path-parser.mjs';
 
 export class Compiler {
   constructor({
