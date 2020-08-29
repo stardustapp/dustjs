@@ -2,7 +2,7 @@
   "name": "@dustjs/backend-firebase",
   "version": "0.1.4",
   "description": "",
-  "main": "src/app.js",
+  "main": "src/app-api.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

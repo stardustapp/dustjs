@@ -1,29 +1,29 @@
-const {WebServer, SkylinkExport} = require('@dustjs/server-koa');
+const {join, resolve, basename} = require('path');
+const fs = require('fs').promises;
+
 const {Environment, FunctionDevice} = require('@dustjs/skylink');
-
 const {FirebaseProject} = require('./firebase-project');
-
-const firebase = new FirebaseProject(
-  process.env.FIREBASE_PROJECT_ID,
-  process.env.FIREBASE_DATABASE_URL);
 
 const {Datadog} = require('./lib/datadog.js');
 const {AsyncCache} = require('./lib/async-cache.js');
-Datadog.uidTagCache = new AsyncCache({
-  async loadFunc(uid) {
-    console.log('loading metrics tags for uid', uid);
-    const user = await firebase.getUserInfo(uid);
-    return {
-      user: user.email || user.uid,
-    };
-  },
-});
 
-(async () => {
+exports.createPublicApi = async function createPublicApi(env) {
 
-  const {join, resolve, basename} = require('path');
-  const {env} = require('process');
-  const fs = require('fs').promises;
+  const firebase = new FirebaseProject(
+    env.FIREBASE_PROJECT_ID,
+    env.FIREBASE_DATABASE_URL);
+
+  Datadog.env = env;
+  Datadog.uidTagCache = new AsyncCache({
+    async loadFunc(uid) {
+      console.log('loading metrics tags for uid', uid);
+      const user = await firebase.getUserInfo(uid);
+      return {
+        user: user.email || user.uid,
+      };
+    },
+  });
+
   // where are the schemas?
   // PATH-style list, allowed to be relative to this module's root
   const schemaDirs = (
@@ -44,8 +44,7 @@ Datadog.uidTagCache = new AsyncCache({
     console.error(`FATAL: Failed to find a Google credential for Firebase.`);
     console.error(`For local usage, make sure to set the GOOGLE_APPLICATION_CREDENTIALS environment variable to the location of a .json credential file.`);
     console.error();
-    console.error(credError);
-    process.exit(5);
+    throw credError;
   }
 
   // set up the skylink API
@@ -98,26 +97,5 @@ Datadog.uidTagCache = new AsyncCache({
   // publicEnv.bind('/create-apptoken', new FunctionDevice({
   //   require('crypto').randomBytes(24).toString('base64')
 
-  // set up a web server
-  const web = new WebServer();
-
-  // serve skylink protocol
-  const allowedOrigins = process.env.SKYLINK_ALLOWED_ORIGINS;
-  web.mountApp('/~~export', new SkylinkExport(publicEnv, {
-    allowedOrigins: allowedOrigins ? allowedOrigins.split(',') : [],
-  }));
-
-  console.log('App listening on', await web.listen(9231, '0.0.0.0'));
-
-  // Self-test
-  if (process.argv.includes('--test')) {
-    const appTest = await import('./app_test.mjs');
-    await appTest.default(web.selfDescribeUri());
-  }
-
-})().then(() => {/*process.exit(0)*/}, err => {
-  console.error();
-  console.error('!-> Backend crashed:');
-  console.error(err.stack || err);
-  process.exit(1);
-});
+  return publicEnv;
+};

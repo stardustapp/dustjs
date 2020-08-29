@@ -200,8 +200,13 @@ const v6Prefix = Object
 
 // Grab launched package.json
 const {join, dirname} = require('path');
-const mainDir = dirname(require.main.path);
-const packageInfo = require(join(mainDir, 'package.json'));
+const mainDir = process.env.DD_MANIFEST_DIR || dirname(require.main.path);
+let packageInfo = {name: 'anonymous'};
+try {
+  pacakgeInfo = require(join(mainDir, 'package.json'));
+} catch (err) {
+  console.debug('datadog.js failed to find package.json in parent dir, ignoring');
+}
 const packageName = packageInfo.name.replace(/^@/, '');
 
 // Set up the singleton metrics sender to share

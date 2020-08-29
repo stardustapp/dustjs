@@ -8,7 +8,7 @@ const NewDocSymbol = Symbol.for('newDoc');
 const IMMUTABLE_DOC_CACHE = new Map;
 setInterval(() => {
   Datadog.gauge('firestore.cached_docs', IMMUTABLE_DOC_CACHE.size);
-}, 20000);
+}, 20000).unref();
 
 class ReferenceTracker {
   constructor() {
