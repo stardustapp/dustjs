@@ -16,7 +16,7 @@ class SessionMgmt {
       },
     });
 
-    setTimeout(this.cleanupNow, 10000);
+    setTimeout(() => this.cleanupNow, 10000).unref();
   }
 
   async createSession(uid, metadata={}) {
@@ -49,7 +49,7 @@ class SessionMgmt {
     //   .collection('domains')
     //   .doc(fqdn);
 
-  cleanupNow = async () => {
+  async cleanupNow() {
     let expiredCount = 0;
     try {
       console.log('Cleaning up expired sessions...');
@@ -77,7 +77,7 @@ class SessionMgmt {
     } finally {
       // several times a day
       const delaySecs = expiredCount >= 25 ? 1 : (12*60*60);
-      setTimeout(this.cleanupNow, delaySecs * 1000);
+      setTimeout(() => this.cleanupNow, delaySecs * 1000).unref();
     }
   }
 }

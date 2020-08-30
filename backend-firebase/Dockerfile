@@ -15,4 +15,4 @@ ADD src src
 ADD builtin-schemas builtin-schemas
 
 # Entrypoint on just node
-CMD ["node", "--unhandled-rejections=strict", "app-standalone.js"]
+CMD ["node", "--unhandled-rejections=strict", "src/app-standalone.js"]
