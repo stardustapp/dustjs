@@ -37,7 +37,7 @@ exports.handler = async argv => {
       // TODO: 'waiting for changes' only logged when in pty
       if (line.includes('waiting for changes')) {
         resolve(true);
-      } else if (line.includes('created') && line.includes('.umd.js')) {
+      } else if (line.includes('created') && line.includes('.js') && !line.includes('.cjs.js')) {
         console.log(`   `, chalk.magenta('rollup:'), line);
         resolve(line);
       } else if (line.includes('!')) {
@@ -105,7 +105,7 @@ exports.handler = async argv => {
 
     console.log(`==> Starting Backend...`);
     const backendProc = runner.launchBackgroundProcess('node', {
-      args: ['--unhandled-rejections=strict', '.'],
+      args: ['--unhandled-rejections=strict', 'src/app-standalone.js'],
       cwd: backendDir,
       env: {
         'FIREBASE_PROJECT_ID': project_id,
@@ -148,28 +148,30 @@ exports.handler = async argv => {
 
     // the apps
     for (const app of project.resolvedApps) {
-      const webBundle = (app.appConfig.bundles || [])
+      const webTarget = join(targetDir, app.id);
+
+      const staticBundle = (app.appConfig.bundles || [])
         .find(x => x.type === 'static html');
-      if (webBundle) {
+      if (staticBundle) {
         await runner.execUtility('ln', ['-s',
-          join(app.directory, webBundle.source),
-          join(targetDir, app.id)]);
+          join(app.directory, staticBundle.source),
+          webTarget]);
         continue;
       }
 
-      const singleSpaBundle = (app.appConfig.bundles || [])
-        .find(x => x.type === 'single-spa tenant');
-      if (singleSpaBundle) {
+      const rollupBundle = (app.appConfig.bundles || [])
+        .find(x => x.type === 'rollup');
+      if (rollupBundle) {
         console.log(`--> Starting ${app.id} live-compile from app directory`);
-        await startRunningNpmBuild(join(app.directory, singleSpaBundle.source));
+        await startRunningNpmBuild(join(app.directory, rollupBundle.source));
         // link the dist subfolder
         await runner.execUtility('ln', ['-s',
-          join(app.directory, singleSpaBundle.source, 'dist'),
-          join(targetDir, app.id)]);
+          join(app.directory, rollupBundle.source, 'dist'),
+          webTarget]);
         continue;
       }
 
-      console.log('!-> WARN: App', app.id, 'lacks a static HTML bundle');
+      console.log('!-> WARN: App', app.id, 'lacks an HTML bundle');
     }
 
     // js libraries
