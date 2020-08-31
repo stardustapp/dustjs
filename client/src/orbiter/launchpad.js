@@ -1,9 +1,10 @@
 import {Skylink} from '../skylink/client.js';
 
 export class BaseLaunchpad {
-  constructor(domainName, appId) {
+  constructor(domainName, appId, subdomain) {
     this.domainName = domainName;
     this.appId = appId;
+    this.subdomain = subdomain || '';
 
     this.status = 'Idle';
     this.skychart = new Skylink('', this.generateEndpoint('http'));
@@ -11,12 +12,12 @@ export class BaseLaunchpad {
     console.log('Configuring', this.constructor.name, 'for app', appId);
   }
 
-  generateEndpoint(baseScheme, subdomain='api.', localport=':9231') {
+  generateEndpoint(baseScheme, localport=':9231') {
     // Autoconfigure endpoint, defaulting to TLS
     // Allow downgrades to insecure where real certs don't go:
     //   localhost, LAN, and IPs
     let protocol = baseScheme+'s';
-    let domainName = `${subdomain}${this.domainName}`;
+    let domainName = `${this.subdomain}${this.domainName}`;
     if (this.domainName.match(/^(localhost|[^.]+.(?:lan|local)|(?:\d{1,3}\.)+\d{1,3})(?::(\d+))?$/)) {
       if (location.protocol === 'http:') {
         protocol = baseScheme;
@@ -34,8 +35,8 @@ export class BaseLaunchpad {
 }
 
 export class FirebaseLaunchpad extends BaseLaunchpad {
-  constructor(domainName, appId) {
-    super(domainName, appId);
+  constructor(domainName, appId, subdomain) {
+    super(domainName, appId, subdomain);
   }
 
   static forCurrentUserApp() {
@@ -46,7 +47,10 @@ export class FirebaseLaunchpad extends BaseLaunchpad {
     }
     const appId = appIdMeta.content;
 
-    return new FirebaseLaunchpad(localStorage.domainName || location.hostname, appId);
+    // TODO
+    const subdomain = 'starSubdomain' in window ? window.starSubdomain : 'api.';
+
+    return new FirebaseLaunchpad(localStorage.domainName || location.hostname, appId, subdomain);
   }
 
   async discover() {
@@ -68,7 +72,7 @@ export class FirebaseLaunchpad extends BaseLaunchpad {
     return this.metadata;
   }
 
-  async launch() {
+  async launch(unused, transport) {
     const result = await this.skychart.invoke('/idtoken-launch/invoke',
       Skylink.toEntry('ticket', {
         'ID Token': await this.user.getIdToken(),
@@ -78,10 +82,12 @@ export class FirebaseLaunchpad extends BaseLaunchpad {
     if (result.Name === 'error') {
       this.status = 'Located';
       return Promise.reject(result.StringValue);
-    } else {
-      // this.skychart.stopTransport();
+    } else if (transport === 'ws') {
       this.status = 'Done';
       return '/pub/sessions/' + result.StringValue + '/mnt';
+    } else {
+      this.status = 'Done';
+      return '/sessions/' + result.StringValue + '/mnt';
     }
   }
 }

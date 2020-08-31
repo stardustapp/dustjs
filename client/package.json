@@ -1,6 +1,6 @@
 {
   "name": "@dustjs/client",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Client library wrapping core Stardust concepts up into a NodeJS/Browser-friendly API",
   "main": "dist/dustjs-client.cjs.js",
   "module": "dist/dustjs-client.esm.js",

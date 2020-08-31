@@ -37,11 +37,14 @@ export class Orbiter {
       }
     }
 
+    // TODO
+    const transport = 'starTransport' in window ? window.starTransport : 'ws';
+
     console.log('launcher', this.launcher);
     return this.launcher.discover()
       .then(data => {
         this.metadata = data;
-        return this.launcher.launch(this.launcher.storedSecret);
+        return this.launcher.launch(this.launcher.storedSecret, transport);
       })
       .catch(err => {
         this.status = 'Failed: ' + err;
@@ -54,9 +57,10 @@ export class Orbiter {
         throw err;
       })
       .then(path => {
+
         // TODO: mount to /srv
         this.mountTable.mount('', 'skylink', {
-          endpoint: this.launcher.generateEndpoint('ws'),
+          endpoint: this.launcher.generateEndpoint(transport),
           path: path,
           stats: this.stats,
         });
