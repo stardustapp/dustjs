@@ -106,7 +106,8 @@ class DocumentFrame extends require('./BaseFrame.js') {
           frame.putLiteral(children.get(frame.name));
         } else throw new Error(
           `TODO: ${frame.constructor.name} lacks putLiteral()`);
-      } else if (typeof frame.putLiteral === 'function') {
+      } else if (!frame.isComplex && typeof frame.putLiteral === 'function') {
+        // implicit clears for inline items
         frame.putLiteral(null);
       }
     }
