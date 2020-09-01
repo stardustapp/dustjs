@@ -83,6 +83,19 @@ class FirestoreCollection extends FirestoreReference {
       new FirestoreDocument(docSnap, this._tracker));
   }
 
+  async getSomeSnapshots({filter, orderBy, limit, startAfter}) {
+    let cursor = this._collRef;
+    if (filter) cursor = cursor.where(filter.field, filter.operation, filter.value);
+    if (orderBy) cursor = cursor.orderBy(orderBy.field, orderBy.direction);
+    if (limit) cursor = cursor.limit(limit);
+    if (startAfter) cursor = cursor.startAfter(startAfter);
+
+    const result = await cursor.get();
+    this.tallyRead('getsome', {method: 'collection/get'}, result.size||1);
+    return result.docs.map(docSnap =>
+      new FirestoreDocument(docSnap, this._tracker));
+  }
+
   deleteAll() {
     this._tracker.collWipes.push(this);
   }
