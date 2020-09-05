@@ -72,6 +72,11 @@ export class ApiSession {
       // TODO: destroy session at process teardown
     }
 
+    if (env.AUTOMATON_NO_WEBSOCKET) {
+      console.log('    Stateless session established.');
+      return new ApiSession(apiDevice, apiDevice, sessionId);
+    }
+
     console.log('    Establishing Websocket connection to API server...');
     const wsOrigin = serverUri.replace('+http', '+ws');
     const wsDevice = SkylinkClientDevice.fromUri(wsOrigin);
