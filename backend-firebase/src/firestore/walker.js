@@ -81,8 +81,9 @@ class FirestoreRegionWalker {
           const targetFunc = `invoke_${funcFrame.name}`;
 
           if (typeof walker.current[targetFunc] === 'function') {
-            return await walker.current[targetFunc](input, walker);
-            // await walker.tracker.commitChanges();
+            const result = await walker.current[targetFunc](input, walker);
+            await walker.tracker.commitChanges();
+            return result;
           } else throw new Error(
             `Cannot invoke "${funcFrame.name}" on "${walker.current.name}"`);
         } finally {

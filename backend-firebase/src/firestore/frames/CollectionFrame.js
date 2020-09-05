@@ -26,10 +26,11 @@ class CollectionFrame extends require('./BaseFrame.js') {
   }
 
   async invoke_create(input) {
+    // apparently firestore is cool just making an ID and assuming it's free
+    // 'create' is still a first class function for backends that actually care
     const newLens = this.collLens.selectDocument(Symbol.for('newDoc'));
     const newFrame = constructFrame(newLens.id, this.nodeSpec.inner, newLens);
     newFrame.putLiteral(input);
-    await newLens.commitChanges();
     return new StringEntry('id', newLens.id);
   }
 
