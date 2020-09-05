@@ -203,7 +203,7 @@ const {join, dirname} = require('path');
 const mainDir = process.env.DD_MANIFEST_DIR || dirname(require.main.path);
 let packageInfo = {name: 'anonymous'};
 try {
-  pacakgeInfo = require(join(mainDir, 'package.json'));
+  packageInfo = require(join(mainDir, 'package.json'));
 } catch (err) {
   console.debug('datadog.js failed to find package.json in parent dir, ignoring');
 }

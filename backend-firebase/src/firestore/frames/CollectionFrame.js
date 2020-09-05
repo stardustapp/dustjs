@@ -51,6 +51,7 @@ class CollectionFrame extends require('./BaseFrame.js') {
       // .limit(limit);
       startAfter: input.Children.filter(x => x.Name === 'start-after').map(x => x.StringValue)[0],
       // .startAfter(startAfter);
+      maxDepth: input.Children.filter(x => x.Name === 'max-depth').map(x => parseInt(x.StringValue))[0],
     };
     // console.log(input, opts);
 
@@ -59,7 +60,7 @@ class CollectionFrame extends require('./BaseFrame.js') {
       constructFrame(document.id, this.nodeSpec.inner, document));
 
     const entryApi = walker.getEntryApi();
-    const enumer = new EnumerationWriter(2);
+    const enumer = new EnumerationWriter(opts.maxDepth || 2);
     enumer.visit({Type: 'Folder'});
     for (const subFrame of frames) {
       walker.pushFrame(subFrame);
