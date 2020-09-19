@@ -9,10 +9,10 @@
   "author": "Daniel Lamando",
   "license": "MIT",
   "dependencies": {
-    "@dustjs/skylink": "^0.2.4",
+    "@dustjs/skylink": "^0.3.5",
     "@koa/cors": "^2.2.3",
-    "koa": "^2.11.0",
-    "koa-body": "^4.1.1",
+    "koa": "^2.13.0",
+    "koa-body": "^4.2.0",
     "koa-mount": "^4.0.0",
     "koa-route": "^3.2.0",
     "koa-websocket": "^6.0.0"
