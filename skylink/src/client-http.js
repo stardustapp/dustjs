@@ -5,10 +5,11 @@ export class StatelessHttpSkylinkClient extends SkylinkClient {
   constructor(endpoint) {
     super();
     this.endpoint = endpoint;
+    this.fetch = (fetch === globalThis.fetch) ? fetch.bind(globalThis) : fetch;
   }
 
   async volley(request) {
-    const resp = await fetch(this.endpoint, {
+    const resp = await this.fetch(this.endpoint, {
       method: 'POST',
       body: JSON.stringify(request),
       headers: {
