@@ -1,6 +1,5 @@
 import {domLoaded} from './dom-loaded.js'
-import * as RealClient from '@dustjs/client'
-const DustClient = RealClient || window.DustClient;
+import * as DustClient from '@dustjs/client'
 
 export async function bootNow() {
   await domLoaded;

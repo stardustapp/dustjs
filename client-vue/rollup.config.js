@@ -5,7 +5,10 @@ import { terser } from 'rollup-plugin-terser';
 export default [
   {
     input: 'src/index.js',
-    external: ['vue'],
+    external: [
+      'vue',
+      '@dustjs/client',
+    ],
     output: {
       name: 'DustClientVue',
       file: 'dist/dustjs-client-vue.umd.js',
@@ -13,6 +16,7 @@ export default [
       sourcemap: true,
       globals: {
         vue: 'Vue',
+        '@dustjs/client': 'DustClient',
       //   'ws': 'WebSocket',
       //   'node-fetch': 'fetch',
       },
