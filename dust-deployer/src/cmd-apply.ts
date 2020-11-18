@@ -1,30 +1,52 @@
-const fs = require('fs').promises;
-const {join, dirname} = require('path');
+import * as YAML from 'https://deno.land/std@0.78.0/encoding/yaml.ts';
+import * as flags from "https://deno.land/std@0.78.0/flags/mod.ts";
+import * as clr from 'https://deno.land/std@0.78.0/fmt/colors.ts';
+import { join, dirname } from 'https://deno.land/std@0.78.0/path/mod.ts';
 
-const yaml = require('js-yaml');
-const chalk = require('chalk');
-const execa = require('execa');
+import { Loader } from './loader.ts';
+import { disregardSignals, ServiceRunner } from './runner.ts';
+import { generateDeploymentPatch, generateIngress, KubernetesClient } from './kubernetes.ts';
 
-const Loader = require('./loader.js');
-const Runner = require('./runner.js');
-const Kubernetes = require('./kubernetes.js');
+const DUSTJS_DEPLOYMENTS_DIR = Deno.env.get('DUSTJS_DEPLOYMENTS_DIR');
+const DUSTJS_APPS_PATH = Deno.env.get('DUSTJS_APPS_PATH');
 
-const {DUSTJS_DEPLOYMENTS_DIR, DUSTJS_APPS_PATH} = process.env;
+export async function cmdApply(args: string[]) {
+  const opts = flags.parse(args, {
+    string: [
+      'only',
+      'backend-image-tag',
+      'deployments-dir',
+      'dustjs-path',
+      'apps-path',
+    ],
+    default: {
+      'only': 'firebase,backend,services',
+      'backend-image-tag': 'latest',
+      'deployments-dir': DUSTJS_DEPLOYMENTS_DIR,
+      'dustjs-path': '/home/dan/Code/@stardustapp/dustjs',
+      'apps-path': DUSTJS_APPS_PATH,
+    },
+  });
+  return handler({
+    only: opts['only'].split(','),
+    backendImageTag: opts['backend-image-tag'],
+    deploymentsDir: opts['deployments-dir'],
+    dustjsPath: opts['dustjs-path'],
+    appsPath: opts['apps-path'],
+  });
+}
 
-exports.builder = yargs => yargs
-  .array('only')
-  .default('only', ['firebase', 'backend', 'services'])
-  .default('backend-image-tag', 'latest')
-  .default('deployments-dir', DUSTJS_DEPLOYMENTS_DIR)
-  .default('dustjs-path', '/home/dan/Code/@stardustapp/dustjs')
-  .default('apps-path', DUSTJS_APPS_PATH)
-;
+async function handler(argv: {
+  only: string[];
+  backendImageTag: string;
+  deploymentsDir: string;
+  dustjsPath: string;
+  appsPath: string;
+}) {
+  const loader = new Loader(Deno.cwd());
+  const runner = new ServiceRunner();
 
-exports.handler = async argv => {
-  const loader = new Loader(process.cwd());
-  const runner = new Runner();
-
-  async function runNpmBuild(modulePath) {
+  async function runNpmBuild(modulePath: string) {
     const output = await runner.execUtility(`npm`, [`run`, `build`], {
       cwd: modulePath,
     });
@@ -42,18 +64,18 @@ exports.handler = async argv => {
   await project.fetchMissingPackages();
   console.log();
 
-  if (argv.only.includes('firebase') && argv['dustjs-path']) {
+  if (argv.only.includes('firebase') && argv['dustjsPath']) {
     console.log(`==>`, `Checking for local @dustjs modules to package directly`);
-    Runner.registerKnownDir(argv['dustjs-path'], '$DustJsCheckout');
+    ServiceRunner.registerKnownDir(argv['dustjsPath'], '$DustJsCheckout');
 
     for (const [library, _] of project.libraryDirs) {
       if (!library.npm_module.startsWith('@dustjs/') && !library.source) continue;
 
       const baseName = library.npm_module.split('/')[1];
       const srcPath = library.source
-        ? join(process.cwd(), library.source)
-        : join(argv['dustjs-path'], baseName);
-      const exists = await fs.access(join(srcPath, 'package.json'))
+        ? join(Deno.cwd(), library.source)
+        : join(argv['dustjsPath'], baseName);
+      const exists = await Deno.stat(join(srcPath, 'package.json'))
         .then(() => true, () => false);
       if (!exists) {
         console.log('!-> Skipping local library', library.npm_module, `because it wasn't found at`, srcPath);
@@ -73,7 +95,7 @@ exports.handler = async argv => {
   if (argv.only.includes('firebase')) {
     console.log(`--> Preparing fresh public directory`);
     const targetDir = join('firebase', 'public-generated');
-    Runner.registerKnownDir(targetDir, '$WebTarget');
+    ServiceRunner.registerKnownDir(targetDir, '$WebTarget');
 
     // start with the static html
     await runner.execUtility('rm', ['-rf', targetDir]);
@@ -111,6 +133,7 @@ exports.handler = async argv => {
 
     // js libraries
     const libDir = join(targetDir, '~~', 'lib');
+    console.log(`--> Copying hosted libraries`);
     await runner.execUtility('mkdir', ['-p', libDir]);
     for (const lib of project.projectConfig.hosted_libraries || []) {
       const cacheDir = project.libraryDirs.get(lib);
@@ -119,40 +142,37 @@ exports.handler = async argv => {
 
       const baseDir = join(cacheDir, lib.sub_path || '');
       const destDir = join(libDir, lib.npm_module.replace('/', '-'));
-      switch (true) {
-        case 'paths' in lib:
-          await runner.execUtility('mkdir', [destDir]);
-          for (const path of lib.paths) {
-            await runner.execUtility('cp', ['-a', join(baseDir, path), join(destDir, path)]);
+      if (lib.paths) {
+        await runner.execUtility('mkdir', [destDir]);
+        for (const path of lib.paths) {
+          await runner.execUtility('cp', ['-a', join(baseDir, path), join(destDir, path)]);
+        }
+      } else if (lib.patterns) {
+        await runner.execUtility('mkdir', [destDir]);
+        const pattern = new RegExp('^.\\/'+lib.patterns.map(x => x.replace(/\//g, '\\/')).join('|')+'$', 'gm');
+        const findCmd = await runner.execUtility(`find`, ['.', '-type', 'f'], {cwd: baseDir});
+        const dirs = new Set('.');
+        const matches = findCmd.stdout.match(pattern) || [];
+        for (const path of matches) {
+          const dir = dirname(path);
+          if (dir && !dirs.has(dir)) {
+            await runner.execUtility('mkdir', ['-p', join(destDir, dir)]);
+            dirs.add(dir);
           }
-          break;
-        case 'patterns' in lib:
-          await runner.execUtility('mkdir', [destDir]);
-          const pattern = new RegExp('^.\\/'+lib.patterns.map(x => x.replace(/\//g, '\\/')).join('|')+'$', 'gm');
-          const findCmd = await runner.execUtility(`find`, ['.', '-type', 'f'], {cwd: baseDir});
-          const dirs = new Set('.');
-          const matches = findCmd.stdout.match(pattern) || [];
-          for (const path of matches) {
-            const dir = dirname(path);
-            if (dir && !dirs.has(dir)) {
-              await runner.execUtility('mkdir', ['-p', join(destDir, dir)]);
-              dirs.add(dir);
-            }
-            await runner.execUtility('cp', ['-a', join(baseDir, path), join(destDir, path)]);
-          }
-          if (matches.length < 1) {
-            console.log('!-> WARN: Library folder', cacheDir, 'has no files match for', pattern);
-          }
-          break;
-        default:
-          await runner.execUtility('cp', ['-ra', baseDir, destDir]);
+          await runner.execUtility('cp', ['-a', join(baseDir, path), join(destDir, path)]);
+        }
+        if (matches.length < 1) {
+          console.log('!-> WARN: Library folder', cacheDir, 'has no files match for', pattern);
+        }
+      } else {
+        await runner.execUtility('cp', ['-ra', baseDir, destDir]);
       }
     }
 
     const targets = ['hosting'];
 
     // check if we have functions
-    const funcsExist = await fs.access(join('firebase', 'functions'))
+    const funcsExist = await Deno.stat(join('firebase', 'functions'))
       .then(() => true, () => false);
     if (funcsExist) {
       targets.push('functions');
@@ -167,26 +187,27 @@ exports.handler = async argv => {
       }
       const {extraSchemasDir} = project.projectConfig;
       if (extraSchemasDir) {
-        for (const schemaFile of await fs.readdir(extraSchemasDir)) {
-          const target = join('firebase', 'functions', 'schemas', schemaFile);
-          await runner.execUtility('cp', [join(extraSchemasDir, schemaFile), target]);
+        for await (const schemaFile of Deno.readDir(extraSchemasDir)) {
+          if (schemaFile.isDirectory) continue;
+          const target = join('firebase', 'functions', 'schemas', schemaFile.name);
+          await runner.execUtility('cp', [join(extraSchemasDir, schemaFile.name), target]);
         }
       }
     }
 
-    console.log(`==> ${chalk.magenta.bold('Deploying')} to Firebase Hosting...`);
+    console.log(`==> ${clr.magenta(clr.bold('Deploying'))} to Firebase Hosting...`);
     const args = ['deploy', '--only', targets.join(','), '--public', 'public-generated'];
     const fireDeploy = await runner.execUtility(`firebase`, args, {
-      cwd: join(process.cwd(), 'firebase'),
+      cwd: join(Deno.cwd(), 'firebase'),
     });
 
     await runner.execUtility('rm', ['-rf', targetDir]);
     if (fireDeploy.stdout.includes('release complete')) {
-      console.log(`==> ${chalk.green.bold('Hosting looks good!')} Yay :)`);
+      console.log(`==> ${clr.green(clr.bold('Hosting looks good!'))} Yay :)`);
     } else {
       console.log(`!-> Something's off with the firebase CLI, this is what I saw:`);
       console.log(fireDeploy.stdout);
-      process.exit(5);
+      Deno.exit(5);
     }
     console.log();
   }
@@ -197,24 +218,26 @@ exports.handler = async argv => {
     console.log(`--> Preparing backend kustomization`);
     const targetDir = await runner.createTempDir();
 
-    await runner.execUtility('cp', [join(__dirname, '..', 'files', 'kustomize-skeletons', 'deployment.yaml'), targetDir]);
-    await runner.execUtility('cp', [join(__dirname, '..', 'files', 'kustomize-skeletons', 'service.yaml'), targetDir]);
+    const skeletonDir = new URL(join('..', 'files', 'kustomize-skeletons'), import.meta.url).toString().replace(/^file:\/\//, '');
+    await runner.execUtility('cp', [join(skeletonDir, 'deployment.yaml'), targetDir]);
+    await runner.execUtility('cp', [join(skeletonDir, 'service.yaml'), targetDir]);
 
     const {
       kubernetes, allowed_origins, domain, env,
     } = project.deploymentConfig.backend_deployment;
+    if (!kubernetes) throw new Error(`BUG: kubernetes was halfway discovered`);
 
-    await writeFile(join(targetDir, 'ingress.yaml'), yaml.safeDump(Kubernetes.generateIngress({
+    await writeFile(join(targetDir, 'ingress.yaml'), YAML.stringify(generateIngress({
       serviceName: 'api',
       annotations: kubernetes.ingressAnnotations,
-      domains: [domain],
+      domains: domain ? [domain] : [],
     })));
 
     const {
       project_id, database_url, admin_uids,
     } = project.deploymentConfig.authority.firebase;
 
-    await writeFile(join(targetDir, 'deployment-patch.yaml'), yaml.safeDump(Kubernetes.generateDeploymentPatch('api', {
+    await writeFile(join(targetDir, 'deployment-patch.yaml'), YAML.stringify(generateDeploymentPatch('api', {
       deployment: kubernetes.replicas == null ? {} : {
         replicas: kubernetes.replicas,
       },
@@ -227,7 +250,7 @@ exports.handler = async argv => {
         ],
       }})));
 
-    await writeFile(join(targetDir, 'kustomization.yaml'), yaml.safeDump({
+    await writeFile(join(targetDir, 'kustomization.yaml'), YAML.stringify({
       commonLabels: kubernetes.labels,
       namespace: kubernetes.namespace,
       namePrefix: `${project_id}-`,
@@ -253,7 +276,7 @@ exports.handler = async argv => {
       images: [{
         name: 'dustjs-backend-firebase',
         newName: 'gcr.io/stardust-156404/dustjs-backend-firebase',
-        newTag: argv['backend-image-tag'],
+        newTag: argv.backendImageTag,
       }],
     }));
 
@@ -266,33 +289,34 @@ exports.handler = async argv => {
 
     const {extraSchemasDir} = project.projectConfig;
     if (extraSchemasDir) {
-      for (const schemaFile of await fs.readdir(extraSchemasDir)) {
-        const target = join(targetDir, 'schemas', schemaFile);
-        await runner.execUtility('cp', [join(extraSchemasDir, schemaFile), target]);
+      for await (const schemaFile of Deno.readDir(extraSchemasDir)) {
+        if (schemaFile.isDirectory) continue;
+        const target = join(targetDir, 'schemas', schemaFile.name);
+        await runner.execUtility('cp', [join(extraSchemasDir, schemaFile.name), target]);
       }
     }
 
     try {
       console.log(`    Adding secrets`);
       await runner.execUtility('cp', [join(project.configDir, 'firebase-service-account.json'), targetDir]);
-      await writeFile(join(targetDir, 'api.env'), Object.keys(env).map(key => `${key}=${env[key]}`).join(`\n`)+`\n`);
+      await writeFile(join(targetDir, 'api.env'), Object.entries(env ?? {}).map(([key, val]) => `${key}=${val}`).join(`\n`)+`\n`);
 
       // const kustomized = await runner.execUtility('kustomize', ['build', targetDir]);
       // console.log(kustomized.stdout);
-      console.log(`==> ${chalk.magenta.bold('Deploying')} to Kubernetes...`);
-      const kustomized = await visiblyExecWithSpecificRetry(runner, 'kubectl', ['--context='+kubernetes.context, 'apply', '-k', targetDir]);
+      console.log(`==> ${clr.magenta(clr.bold('Deploying'))} to Kubernetes...`);
+      const kustomized = await runner.execUtility('kubectl', ['--context='+kubernetes.context, 'apply', '-k', targetDir]);
     } finally {
       await runner.execUtility('rm', ['-rf', targetDir]);
     }
 
-    const kubectl = new Kubernetes.Client(kubernetes.context, kubernetes.namespace);
+    const kubectl = new KubernetesClient(kubernetes.context, kubernetes.namespace);
 
     console.log(`--> Waiting for deployment to stabilize`);
     const finalPods = await kubectl
       .pollForPodStability(kubernetes.labels);
     const podS = finalPods.length === 1 ? '' : 's';
     const verb = finalPods.length === 1 ? 'is' : 'are';
-    console.log(`==> ${chalk.green.bold('Backend looks good!')} ${chalk.green(`${finalPods.length} pod${podS}`)} ${verb} in service. :)`);
+    console.log(`==> ${clr.green(clr.bold('Backend looks good!'))} ${clr.green(`${finalPods.length} pod${podS}`)} ${verb} in service. :)`);
     console.log();
   }
 
@@ -319,7 +343,10 @@ exports.handler = async argv => {
       await runner.execUtility('cp', ['-ra',
         svcsSource, svcsTarget]);
 
-      const files = await fs.readdir(svcsTarget);
+      const files = new Array<string>();
+      for await (const file of Deno.readDir(svcsTarget)) {
+        if (!file.isDirectory) files.push(file.name);
+      }
       configMapGenerator.push({
         name: token,
         files: files.map(file => `${file}=${token}/${file}`),
@@ -329,41 +356,42 @@ exports.handler = async argv => {
     const {
       kubernetes, allowed_origins, domain, env,
     } = project.deploymentConfig.backend_deployment;
+    if (!kubernetes) throw new Error(`BUG: kubernetes was halfway discovered`);
 
-    await writeFile(join(targetDir, 'kustomization.yaml'), yaml.safeDump({
+    await writeFile(join(targetDir, 'kustomization.yaml'), YAML.stringify({
       // commonLabels: kubernetes.labels,
       namespace: kubernetes.namespace,
       // namePrefix: `${project_id}-`,
       configMapGenerator,
     }));
 
-    console.log(`==> ${chalk.magenta.bold('Deploying')} Routines to Kubernetes...`);
-    const kustomized = await visiblyExecWithSpecificRetry(runner, 'kubectl', ['--context='+kubernetes.context, 'apply', '-k', targetDir]);
+    console.log(`==> ${clr.magenta(clr.bold('Deploying'))} Routines to Kubernetes...`);
+    const kustomized = await runner.execUtility('kubectl', ['--context='+kubernetes.context, 'apply', '-k', targetDir]);
     for (const line of kustomized.stdout.split('\n')) {
       console.log('   ', line);
     }
 
-    console.log(`==> ${chalk.green.bold('Routines look good!')}`);
+    console.log(`==> ${clr.green(clr.bold('Routines look good!'))}`);
     console.log();
   }
 
-
-
+  await runner.shutdown();
+  disregardSignals();
 }
 
-async function writeFile(path, contents) {
-  console.log(`    ${chalk.gray.bold('cat')} ${chalk.gray(`> ${path}`)}`);
-  await fs.writeFile(path, contents, 'utf-8');
+async function writeFile(path: string, contents: string) {
+  console.log(`    ${clr.gray(clr.bold('cat'))} ${clr.gray(`> ${path}`)}`);
+  await Deno.writeTextFile(path, contents);
 }
 
-async function visiblyExecWithSpecificRetry(runner, ...stuff) {
-  try {
-    return await runner.execUtility(...stuff);
-  } catch (err) {
-    if (err.stderr && err.stderr.includes('context deadline exceeded')) {
-      console.log('    control plane connection issue, retrying once');
-      return await runner.execUtility(...stuff);
-    }
-    throw err;
-  }
-}
+// async function visiblyExecWithSpecificRetry(runner: ServiceRunner, ...stuff) {
+//   try {
+//     return await runner.execUtility(...stuff);
+//   } catch (err) {
+//     if (err.stderr && err.stderr.includes('context deadline exceeded')) {
+//       console.log('    control plane connection issue, retrying once');
+//       return await runner.execUtility(...stuff);
+//     }
+//     throw err;
+//   }
+// }
