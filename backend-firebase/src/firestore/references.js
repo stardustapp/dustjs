@@ -10,6 +10,13 @@ setInterval(() => {
   Datadog.gauge('firestore.cached_docs', IMMUTABLE_DOC_CACHE.size);
 }, 20000).unref();
 
+function slashEncode(str) {
+  return str.replace(/[%/]/g, x => x === '%' ? '%25' : '%2F');
+}
+function slashDecode(str) {
+  return str.replace(/%(2F|25)/g, x => x === '%25' ? '%' : '/');
+}
+
 class ReferenceTracker {
   constructor() {
     this.documents = new Array;
@@ -71,7 +78,7 @@ class FirestoreCollection extends FirestoreReference {
         newDoc: true,
         ...flags});
     } else {
-      return new FirestoreDocument(this._collRef.doc(id), this._tracker, flags);
+      return new FirestoreDocument(this._collRef.doc(slashEncode(id)), this._tracker, flags);
     }
   }
 
@@ -162,11 +169,10 @@ class FirestoreDocument extends FirestoreReference {
     this.flags = flags;
   }
   get id() {
-    // TODO: escaping?
-    return this._docRef.id;
+    return slashDecode(this._docRef.id);
   }
   selectCollection(id) {
-    return new FirestoreCollection(this._docRef.collection(id), this._tracker);
+    return new FirestoreCollection(this._docRef.collection(slashEncode(id)), this._tracker);
   }
 
   async getSnapshot(logMethod=null) {
@@ -245,7 +251,7 @@ class FirestoreDocument extends FirestoreReference {
   }
 
   async commitChanges() {
-    console.log('commiting changes', this.changes);
+    // console.log('commiting changes', this.changes);
     // throw new Error(`TODO: Document commit`);
 
     const doc = {};
