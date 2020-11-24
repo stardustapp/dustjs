@@ -62,6 +62,11 @@ export class ApiHandle {
       Input: literal,
     }); }
 
+  invoke(Input=null) { return this.api
+    .performOperation({ Op: 'invoke',
+      Path: this.path,
+      Input,
+    }); }
   invokeWithChildren(Children=[]) { return this.api
     .performOperation({ Op: 'invoke',
       Path: this.path,
