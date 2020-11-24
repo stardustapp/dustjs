@@ -100,16 +100,15 @@ export class ServiceRunner {
     try {
       const proc = Deno.run({
         cmd: [cmd, ...args],
-        cwd: this.cwd,
+        cwd: opts.cwd ?? this.cwd,
         stdout: 'piped',
         stderr: 'piped',
-        ...opts,
       });
       const [stdoutRaw, stderrRaw, status] = await Promise.all([proc.output(), proc.stderrOutput(), proc.status()]);
       const stdout = new TextDecoder().decode(stdoutRaw);
       const stderr = new TextDecoder().decode(stderrRaw);
       if (!status.success) {
-        throw new Error(`Command '${cmd}' exited with status ${status}.\n`+stderr);
+        throw new Error(`Command '${cmd}' exited with status ${JSON.stringify(status)}.\n-----\n`+stderr+`\n-----\n`+stdout);
       }
       return {stdout, stderr, status};
     } finally {
