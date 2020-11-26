@@ -11,9 +11,9 @@
   "dependencies": {
     "@dustjs/data-tree": "^0.1.2",
     "@dustjs/server-koa": "^0.2.1",
-    "@dustjs/skylink": "^0.3.5",
-    "firebase-admin": "^9.2.0",
-    "moment": "^2.28.0",
+    "@dustjs/skylink": "^0.3.7",
+    "firebase-admin": "^9.4.1",
+    "moment": "^2.29.1",
     "node-fetch": "^2.6.0"
   }
 }
