@@ -21,7 +21,7 @@ export function entryToJS (ent) {
       return {
         mimeType: ent.Mime,
         asText() {
-          if (ent.Mime && ent.Mime.startsWith('text/')) {
+          if (ent.Mime && (ent.Mime.startsWith('text/') || ent.Mime.toLowerCase().includes('utf-8'))) {
             if (typeof Buffer != 'undefined') {
               const buffer = Buffer.from(ent.Data || '', 'base64');
               return buffer.toString('utf-8'); // TODO: encoding
