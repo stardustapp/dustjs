@@ -9,10 +9,13 @@
     </div>
 
     <form class="modal-form" @submit.prevent="submitLogin">
-      <h1>login to <em>skychat</em></h1>
+      <h1>
+        login to <em>{{ appName }}</em>
+      </h1>
 
       <!-- button grabbed from https://developers.google.com/identity/sign-in/web/build-button -->
       <div
+        v-if="googleAuth"
         @click.prevent="startGoogleLogin"
         style="height: 50px; margin: 0.25em 1em; font-size: 1.3em"
         class="abcRioButton abcRioButtonBlue"
@@ -65,28 +68,37 @@
         </div>
       </div>
 
-      <div style="align-self: center; margin: 1em">&mdash; or &mdash;</div>
+      <div
+        v-if="googleAuth && emailPassAuth"
+        style="align-self: center; margin: 1em"
+      >
+        &mdash; or &mdash;
+      </div>
 
-      <input
-        :readonly="isPending"
-        type="email"
-        name="email"
-        placeholder="email address"
-        autocomplete="email"
-        value="test@danopia.net"
-        required
-        autofocus
-      />
-      <input
-        :readonly="isPending"
-        type="password"
-        name="password"
-        placeholder="password"
-        autocomplete="current-password"
-        required
-      />
-      <button type="submit" :disabled="isPending">log in</button>
+      <template v-if="emailPassAuth">
+        <input
+          :readonly="isPending"
+          type="email"
+          name="email"
+          placeholder="email address"
+          autocomplete="email"
+          required
+          autofocus
+        />
+        <input
+          :readonly="isPending"
+          type="password"
+          name="password"
+          placeholder="password"
+          autocomplete="current-password"
+          required
+        />
+        <button type="submit" :disabled="isPending">log in</button>
+      </template>
     </form>
+
+    <!-- Let implementors add extra links etc -->
+    <slot></slot>
     <!--div style="align-self: center;">
       <a href="#" @click="showRegister">or register a new account</a>
     </div-->
@@ -103,6 +115,11 @@
 import { sessionApp } from "../session-app.js";
 
 export default {
+  props: {
+    appName: { type: String, default: "untitled app" },
+    googleAuth: { type: Boolean, default: true },
+    emailPassAuth: { type: Boolean, default: false },
+  },
   data: () => ({
     isPending: false,
     banner: {},
@@ -218,11 +235,21 @@ export default {
   text-decoration: underline;
 }
 
+.sky-auth-form .banner,
+.sky-auth-form .modal-form {
+  box-shadow: 2px 5px 15px 1px rgba(15, 15, 25, 0.25);
+}
+
 .sky-auth-form .banner {
   margin: 3em 0 -3em;
   padding: 1em;
   width: 40em;
   align-self: center;
+}
+.sky-auth-form .banner code {
+  display: block;
+  margin-top: 0.5em;
+  color: rgb(255,160,140);
 }
 .sky-auth-form .inline-banner {
   margin: 1em 1.3em;
@@ -356,7 +383,7 @@ export default {
   cursor: pointer;
   outline: none;
   overflow: hidden;
-  position: relative;
+  /* position:relative; */
   text-align: center;
   vertical-align: middle;
   white-space: nowrap;
