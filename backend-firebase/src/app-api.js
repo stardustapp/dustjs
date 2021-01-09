@@ -17,10 +17,8 @@ exports.createPublicApi = async function createPublicApi(env) {
   Datadog.uidTagCache = new AsyncCache({
     async loadFunc(uid) {
       console.log('loading metrics tags for uid', uid);
-      const user = await firebase.getUserInfo(uid);
-      return {
-        user: user.email || user.uid,
-      };
+      const user = await firebase.getUserInfo(uid).then(x => x.email || x.uid, err => uid);
+      return { user };
     },
   });
 

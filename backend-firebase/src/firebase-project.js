@@ -81,6 +81,23 @@ class FirebaseProject {
       `App Token not found`);
     const tokenSnap = tokenQuery.docs[0];
 
+    // check if the user is actually a system user
+    const userSnap = await this.userColl
+      .doc(userId).get();
+    if (userSnap.get('system') == true) {
+
+      // issue a session for the app
+      console.log(`Token`, JSON.stringify(tokenSnap.get('name')),
+        `launching for system user`, userId,
+        '/', tokenSnap.get('appId'));
+      return await this.createUserSession(userId, tokenSnap.ref, {
+        authority: 'AppToken',
+        application: tokenSnap.get('appId'),
+        tokenId: tokenSnap.id,
+        system: true,
+      });
+    }
+
     // fetch the Firebase user record
     const userRecord = await this.getUserInfo(userId);
     if (userRecord.disabled) throw new Error(
