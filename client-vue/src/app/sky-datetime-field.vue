@@ -11,10 +11,10 @@ export default {
   computed: {
     value() {
       switch (this.type) {
-        case 'current-timestamp':
+        case "current-timestamp":
           return new Date().toISOString();
         default:
-          alert('bad sky-datetime-field type '+this.type);
+          alert("bad sky-datetime-field type " + this.type);
           return null;
       }
     },

@@ -8,19 +8,19 @@
 export default {
   methods: {
     openMenu() {
-      const menu = document.querySelector('#left-menu');
-      if (!menu.classList.contains('open')) {
-        menu.classList.add('animate');
-        menu.classList.add('open');
+      const menu = document.querySelector("#left-menu");
+      if (!menu.classList.contains("open")) {
+        menu.classList.add("animate");
+        menu.classList.add("open");
       }
     },
     toggleMenu() {
-      const menu = document.querySelector('#left-menu');
-      menu.classList.add('animate');
-      if (menu.classList.contains('open')) {
-        menu.classList.remove('open');
+      const menu = document.querySelector("#left-menu");
+      menu.classList.add("animate");
+      if (menu.classList.contains("open")) {
+        menu.classList.remove("open");
       } else {
-        menu.classList.add('open');
+        menu.classList.add("open");
       }
     },
   },

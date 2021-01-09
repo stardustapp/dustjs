@@ -10,9 +10,11 @@ export default {
   },
   methods: {
     onChange(evt) {
-      const {checked} = evt.target;
+      const { checked } = evt.target;
       if (checked && this.checkedValue) {
-        window.skylinkP.then(x => x.putString('/'+this.path, this.checkedValue));
+        window.skylinkP.then((x) =>
+          x.putString("/" + this.path, this.checkedValue)
+        );
       }
     },
   },
