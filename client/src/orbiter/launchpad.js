@@ -1,9 +1,10 @@
 import {Skylink} from '../skylink/client.js';
 
 export class BaseLaunchpad {
-  constructor(domainName, appId, subdomain) {
+  constructor(domainName, appId, assumeUser, subdomain) {
     this.domainName = domainName;
     this.appId = appId;
+    this.assumeUser = assumeUser;
     this.subdomain = subdomain || '';
 
     this.status = 'Idle';
@@ -35,8 +36,8 @@ export class BaseLaunchpad {
 }
 
 export class FirebaseLaunchpad extends BaseLaunchpad {
-  constructor(domainName, appId, subdomain) {
-    super(domainName, appId, subdomain);
+  constructor(domainName, appId, assumeUser, subdomain) {
+    super(domainName, appId, assumeUser, subdomain);
   }
 
   static forCurrentUserApp() {
@@ -47,10 +48,14 @@ export class FirebaseLaunchpad extends BaseLaunchpad {
     }
     const appId = appIdMeta.content;
 
+    const assumeUserMeta = document
+      .querySelector('meta[name=x-stardust-assume-user]');
+    const assumeUser = assumeUserMeta && assumeUserMeta.content || false;
+
     // TODO
     const subdomain = 'starSubdomain' in window ? window.starSubdomain : 'api.';
 
-    return new FirebaseLaunchpad(localStorage.domainName || location.hostname, appId, subdomain);
+    return new FirebaseLaunchpad(localStorage.domainName || location.hostname, appId, assumeUser, subdomain);
   }
 
   async discover() {
@@ -72,15 +77,11 @@ export class FirebaseLaunchpad extends BaseLaunchpad {
     return this.metadata;
   }
 
-  async launch(unused, transport) {
-    const result = await this.skychart.invoke('/idtoken-launch/invoke',
-      Skylink.toEntry('ticket', {
-        'ID Token': await this.user.getIdToken(),
-        'App ID': this.appId,
-      }));
+  async invokeLaunchToPath(path, transport, ticket) {
+    const result = await this.skychart.invoke(path,
+      Skylink.toEntry('ticket', ticket));
 
     if (result.Name === 'error') {
-      this.status = 'Located';
       return Promise.reject(result.StringValue);
     } else if (transport === 'ws') {
       this.status = 'Done';
@@ -90,12 +91,43 @@ export class FirebaseLaunchpad extends BaseLaunchpad {
       return '/sessions/' + result.StringValue + '/mnt';
     }
   }
+
+  async launch(unused, transport) {
+    try {
+
+      if (this.assumeUser) {
+        const userPath = await this
+          .invokeLaunchToPath('/idtoken-launch/invoke', 'http', {
+            'ID Token': await this.user.getIdToken(),
+            'App ID': this.appId,
+          });
+        const assumedPath = await this
+          .invokeLaunchToPath(userPath+'/assume-user/invoke', transport, {
+            'User ID': this.assumeUser,
+            'App ID': this.appId,
+          });
+        this.status = 'Done';
+        return assumedPath;
+      }
+
+      const userPath = await this
+        .invokeLaunchToPath('/idtoken-launch/invoke', transport, {
+          'ID Token': await this.user.getIdToken(),
+          'App ID': this.appId,
+        });
+      this.status = 'Done';
+      return userPath;
+
+    } finally {
+      this.status = 'Located';
+    }
+  }
 }
 
 // original class for old servers
 export class LegacyChartLaunchpad extends BaseLaunchpad {
-  constructor(domainName, chartName, appId) {
-    super(domain, appId);
+  constructor(domainName, chartName, appId, assumeUser) {
+    super(domain, appId, assumeUser);
     this.chartName = chartName;
   }
 
@@ -109,6 +141,10 @@ export class LegacyChartLaunchpad extends BaseLaunchpad {
     }
     const appId = appIdMeta.content;
 
+    const assumeUserMeta = document
+      .querySelector('meta[name=x-stardust-assume-user]');
+    const assumeUser = assumeUserMeta && assumeUserMeta.content || false;
+
     // Discover chartName from current URL
     if (location.pathname.startsWith('/~~')) {
       throw new Error("Core routes don't have a chart");
@@ -117,7 +153,7 @@ export class LegacyChartLaunchpad extends BaseLaunchpad {
     }
     const chartName = location.pathname.split('/')[1].slice(1);
 
-    return new LegacyChartLaunchpad(localStorage.domainName || location.hostname, chartName, appId);
+    return new LegacyChartLaunchpad(localStorage.domainName || location.hostname, chartName, appId, assumeUser);
   }
 
   // Discover saved secret from localStorage, if any
