@@ -1,6 +1,9 @@
 const admin = require('firebase-admin');
 const defaultCredential = admin.credential.applicationDefault();
 
+const adminUids = (process.env.FIREBASE_ADMIN_UIDS || '').split(',');
+if (!adminUids.slice(-1)[0]) adminUids.pop();
+
 const {PathFragment} = require('@dustjs/skylink');
 const {SessionMgmt} = require('./session-mgmt.js');
 const {ServiceMgmt} = require('./service-mgmt.js');
@@ -35,7 +38,9 @@ class FirebaseProject {
         snapshot.get('authority'),
         this.applications,
         this.userColl.doc(snapshot.get('uid')),
-        await this.getUserServices(snapshot.get('uid')));
+        await this.getUserServices(snapshot.get('uid')),
+        this, // firebase_ToBeRemoved
+      );
     });
 
   }
@@ -129,6 +134,50 @@ class FirebaseProject {
     return await this.createUserSession(userRecord.uid, userRef, {
       authority: 'IdToken',
       application: appId,
+    });
+  }
+
+
+  // Creates + returns new sessionId if the session is valid
+  // Has authorization checks to only enable some assuming
+  // Effectively 'sudo' I guess
+  async assumeUserFromSession(userId, appId, fromSessionId) {
+    if (!fromSessionId) throw new Error(
+      `Session ID not given`);
+
+    // check that the original session belongs to an admin
+    const sessionQuery = await this.sessionColl
+      .doc(fromSessionId).get();
+    if (sessionQuery.empty) throw new Error(
+      `User Session not found`);
+    const fromUserId = sessionQuery.get('uid');
+    if (!fromUserId) throw new Error(
+      `Invalid Session Dataa`);
+    if (!adminUids.includes(fromUserId)) throw new Error(
+      `Admin Access Denied`);
+
+    // check if the user is a system user -- admins can assume them
+    const userSnap = await this.userColl
+      .doc(userId).get();
+    if (userSnap.get('system') !== true) throw new Error(
+      `Invalid User to assume`);
+
+    // issue a session for the app
+    console.log(`User`, JSON.stringify(fromUserId),
+      `/`, JSON.stringify(sessionQuery.get('application')),
+      `launching to system user`, userId,
+      '/', appId);
+
+    // TODO: session should expire when parent session expires
+    return await this.createUserSession(userId, userSnap.ref
+      .collection('assumers')
+      .doc(fromUserId)
+    , {
+      authority: 'Assumed',
+      application: appId,
+      sourceUser: fromUserId,
+      firstCreatedAt: new Date(),
+      system: true,
     });
   }
 
