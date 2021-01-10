@@ -170,6 +170,7 @@ class UserService {
         frameCollSpec,
         {
           readOnly: true,
+          readOnlyExceptions: ['state'],
           defaultQuery: {
             orderBy: { field: 'origin.date', direction: 'desc'},
             limit: 15,

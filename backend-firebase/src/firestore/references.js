@@ -397,19 +397,26 @@ class FirestoreDocumentLens {
   }
 
   removeData() {
-    if (this.flags.readOnly) throw new Error(
+    if (!this.isWritable) throw new Error(
       `This field is readonly`);
     this.rootDoc.changes.push([this.keyStack, 'remove']);
   }
   clearData() {
-    if (this.flags.readOnly) throw new Error(
+    if (!this.isWritable) throw new Error(
       `This field is readonly`);
     this.rootDoc.changes.push([this.keyStack, 'clear']);
   }
   setData(raw) {
-    if (this.flags.readOnly) throw new Error(
+    if (!this.isWritable) throw new Error(
       `This field is readonly`);
     this.rootDoc.changes.push([this.keyStack, 'set', raw]);
+  }
+
+  get isWritable() {
+    if (!this.flags.readOnly) return true;
+    if (!this.flags.readOnlyExceptions) return false;
+    if (this.flags.readOnlyExceptions.includes(this.keyStack.join('.'))) return true;
+    return false;
   }
 
   onSnapshot(snapCb, errorCb, logMethod=null) {
