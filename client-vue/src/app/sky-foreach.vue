@@ -15,6 +15,7 @@ export default {
     orderBy: String,
     fields: String,
     depth: Number,
+    // TODO: non-reactive option
   },
   data: () => ({
     items: [],

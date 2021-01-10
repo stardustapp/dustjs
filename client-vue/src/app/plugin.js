@@ -1,3 +1,4 @@
+import SkyActionButton from './sky-action-button.vue';
 import SkyActionCheckbox from './sky-action-checkbox.vue';
 import SkyAuthForm from './sky-auth-form.vue';
 import SkyDatetimeField from './sky-datetime-field.vue';
@@ -7,6 +8,7 @@ import SkySession from './sky-session.vue';
 import SkyWith from './sky-with.vue';
 
 export const components = {
+  'sky-action-button': SkyActionButton,
   'sky-action-checkbox': SkyActionCheckbox,
   'sky-auth-form': SkyAuthForm,
   'sky-datetime-field': SkyDatetimeField,
