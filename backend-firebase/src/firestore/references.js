@@ -57,7 +57,7 @@ class FirestoreReference {
 }
 
 class FirestoreCollection extends FirestoreReference {
-  constructor(collRef, tracker) {
+  constructor(collRef, tracker, flags={}) {
     super();
     Object.defineProperties(this, {
       _collRef: {
@@ -71,42 +71,66 @@ class FirestoreCollection extends FirestoreReference {
     });
 
     this.collPath = collRef.path;
+
+    // Some flags don't inherit
+    const {defaultQuery, ...regFlags} = flags;
+    this.defaultQuery = defaultQuery;
+    this.flags = regFlags;
   }
   selectDocument(id, flags={}) {
     if (id === NewDocSymbol) {
+      if (this.flags.readOnly) throw new Error(
+        `Cannot create new doc within readonly collection`);
       return new FirestoreDocument(this._collRef.doc(), this._tracker, {
         newDoc: true,
+        ...this.flags,
         ...flags});
     } else {
-      return new FirestoreDocument(this._collRef.doc(slashEncode(id)), this._tracker, flags);
+      return new FirestoreDocument(this._collRef.doc(slashEncode(id)), this._tracker, {
+        ...this.flags,
+        ...flags,
+      });
     }
   }
 
-  async getAllSnapshots() {
-    const result = await this._collRef.get();
-    this.tallyRead('getall', {method: 'collection/get'}, result.size||1);
-
-    return result.docs.map(docSnap =>
-      new FirestoreDocument(docSnap, this._tracker));
-  }
-
-  async getSomeSnapshots({filter, orderBy, limit, startAfter}) {
+  buildQueryCursor({filter, orderBy, limit, startAfter}) {
     let cursor = this._collRef;
     if (filter) cursor = cursor.where(filter.field, filter.operation, filter.value);
     if (orderBy) cursor = cursor.orderBy(orderBy.field, orderBy.direction);
     if (limit) cursor = cursor.limit(limit);
     if (startAfter) cursor = cursor.startAfter(startAfter);
+    return cursor;
+  }
+  getDefaultCursor() {
+    if (this.defaultQuery) {
+      return this.buildQueryCursor(this.defaultQuery);
+    }
+    return this._collRef;
+  }
 
+  async getAllSnapshots() {
+    const result = await this.getDefaultCursor().get();
+    this.tallyRead('getall', {method: 'collection/get'}, result.size||1);
+
+    return result.docs.map(docSnap =>
+      new FirestoreDocument(docSnap, this._tracker, this.flags));
+  }
+
+  async getSomeSnapshots(query) {
+    const cursor = this.buildQueryCursor(query);
     const result = await cursor.get();
     this.tallyRead('getsome', {method: 'collection/get'}, result.size||1);
     return result.docs.map(docSnap =>
-      new FirestoreDocument(docSnap, this._tracker));
+      new FirestoreDocument(docSnap, this._tracker, this.flags));
   }
 
   deleteAll() {
+    if (this.flags.readOnly) throw new Error(
+      `Cannot deleteAll from a readonly collection`);
     this._tracker.collWipes.push(this);
   }
   async deleteAllInner() {
+    // TODO: is it ok that this ignores defaultQuery?
     const querySnap = await this._collRef.get();
     this.tallyRead('getall', {method: 'collection/clear'}, querySnap.size||1);
     this.tallyWrite('delete', {method: 'collection/clear'}, querySnap.size);
@@ -119,14 +143,14 @@ class FirestoreCollection extends FirestoreReference {
 
   onSnapshot(snapCb, errorCb, logMethod=null) {
     this.tallyStream('onSnapshot', {method: logMethod||'collection/unknown'});
-    return this._collRef.onSnapshot(querySnap => {
+    return this.getDefaultCursor().onSnapshot(querySnap => {
       this.tallyRead('watched', {method: logMethod||'collection/unknown'}, querySnap.docChanges().length);
 
       snapCb({
         docChanges: () => {
           return querySnap.docChanges().map(change => ({
             type: change.type,
-            doc: new FirestoreDocument(change.doc, null),
+            doc: new FirestoreDocument(change.doc, null, this.flags),
           }));
         },
       });
