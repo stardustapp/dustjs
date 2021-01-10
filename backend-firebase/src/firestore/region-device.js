@@ -1,6 +1,8 @@
-const {Environment, PathFragment} = require('@dustjs/skylink');
+const {PathFragment} = require('@dustjs/skylink');
 
-const {FirestoreRegionWalker} = require('./walker.js');
+const {AppRegionFrame} = require('./frames/index.js');
+const {FirestoreWalker} = require('./walker.js');
+const {ReferenceTracker} = require('./references.js');
 
 class FirestoreRegionDevice {
   constructor(userSession, region) {
@@ -44,34 +46,20 @@ class FirestoreRegionDevice {
       return null;
     }
 
-    const regionWalker = new FirestoreRegionWalker(appId, appRegion, {
+    const tracker = new ReferenceTracker();
+    const rootFrame = new AppRegionFrame(appId, appRegion, {
       rootRef: this.userSession.userRef,
       appId: appId,
       regionId: this.region,
+      tracker,
     });
+
+    const regionWalker = new FirestoreWalker(tracker, rootFrame);
     if (regionWalker.walkPath(path)) {
       return regionWalker.getEntryApi();
     } else {
       return null;
     }
-
-
-    // const rootFrame = new FirestoreRegionFrame({
-    //   paths: appRegion,
-    // });
-    // for (const root of appRegion) {
-    //   if (path.startsWith(root.path)) {
-    //     const subPath = path.slice(root.path.split('/').length - 1);
-    //     console.log(`TODO: get path`, subPath, `from`, root.node);
-    //     return;
-    //   }
-    // }
-    //
-    // const tempEnv = new Environment;
-    // for (const root of appRegion) {
-    //   tempEnv.bind(root.path, new Environment);
-    // }
-    // return tempEnv.getEntry(rawPath);
   }
 }
 

@@ -2,16 +2,17 @@ const frames = require('./frames/');
 const {PublicationState} = require('./publication-state.js');
 const {ReferenceTracker} = require('./references.js');
 
-class FirestoreRegionWalker {
-  constructor(rootName, rootSpec, rootConfig) {
-    this.tracker = new ReferenceTracker();
-    const rootFrame = new frames.AppRegionFrame(rootName, rootSpec, {
-      ...rootConfig,
-      tracker: this.tracker,
-    });
+class FirestoreWalker {
+  constructor(tracker, rootFrame) {
+    if (!(tracker instanceof ReferenceTracker)) throw new Error(
+      `BUG: tracker argument must be a ReferenceTracker`);
+    if (!(rootFrame instanceof frames.BaseFrame)) throw new Error(
+      `BUG: rootFrame argument must be a subclass of BaseFrame`);
+
+    this.tracker = tracker;
+    this.current = rootFrame;
 
     this.stack = new Array;
-    this.current = rootFrame;
   }
 
   pushFrame(frame) {
@@ -134,4 +135,4 @@ class FirestoreRegionWalker {
   }
 }
 
-exports.FirestoreRegionWalker = FirestoreRegionWalker;
+exports.FirestoreWalker = FirestoreWalker;
