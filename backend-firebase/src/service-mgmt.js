@@ -337,11 +337,14 @@ const frameCollSpecPromise = (async () => {
       '/Input': String,
       '/Op': String,
       '/Path': String,
+      '/Dest': String,
+      '/Depth': Number,
     },
     '/response': {
       '/Ok': Boolean,
       '/Output': String,
     },
+    '/state': String,
   });
 
   const compiler = new Compiler({
