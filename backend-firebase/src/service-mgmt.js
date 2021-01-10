@@ -1,5 +1,7 @@
 const {Datadog} = require('./lib/datadog.js');
 const {AsyncCache} = require('./lib/async-cache.js');
+const {FirestoreCollectionDevice} = require('./firestore/collection-device.js');
+
 const {
   Environment,
   PathFragment,
@@ -162,23 +164,18 @@ class UserService {
     this.env.bind('/mnt', { getEntry: this.getMntEntry.bind(this) });
     this.getEntry = this.env.getEntry.bind(this.env);
 
-    this.env.bind('/recent-frames', { getEntry: (path) => {
-      return {
-        get() {
-          return {Type: 'Folder'};
-        },
-        enumerate: async (enumer) => {
-          enumer.visit({Type: 'Folder'});
-          if (!enumer.canDescend()) return;
-          const recents = await this.docRef.collection('frames').orderBy('origin.date', 'desc').limit(25).get();
-          for (const frameDoc of recents.docs) {
-            enumer.descend(frameDoc.id);
-            enumer.visit({Type: 'Folder'});
-            enumer.ascend();
-          }
-        },
-      };
-    }});
+    frameCollSpecPromise.then(frameCollSpec => {
+      this.env.bind('/recent-frames', new FirestoreCollectionDevice(
+        docRef.collection('frames'),
+        frameCollSpec,
+        {
+          readOnly: true,
+          defaultQuery: {
+            orderBy: { field: 'origin.date', direction: 'desc'},
+            limit: 15,
+          }},
+        ));
+    });
   }
 
   async processWaitingFrameDocument(docSnap) {
@@ -318,6 +315,43 @@ class ProxiedServiceClient extends SkylinkClient {
   }
 
 }
+
+
+const frameCollSpecPromise = (async () => {
+  // load all the application schema models
+  const {Compiler, Elements} = process.env.USING_BABEL
+    ? require('@dustjs/data-tree')
+    : await import('@dustjs/data-tree');
+
+  const frameCollSchema = new Elements.Collection({
+    '/origin': {
+      '/date': Date,
+      '/hostname': String,
+      '/wants-response': Boolean,
+    },
+    '/fulfilled': {
+      '/date': Date,
+      '/hostname': String,
+    },
+    '/request': {
+      '/Input': String,
+      '/Op': String,
+      '/Path': String,
+    },
+    '/response': {
+      '/Ok': Boolean,
+      '/Output': String,
+    },
+  });
+
+  const compiler = new Compiler({
+    target: 'firestore',
+  });
+  const frameCollSpec = compiler.mapChildSpec(frameCollSchema);
+  console.log('Compiled frame collection spec');
+  return frameCollSpec;
+})();
+
 
 module.exports = {
   ServiceMgmt,
