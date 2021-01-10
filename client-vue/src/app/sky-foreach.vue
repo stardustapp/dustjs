@@ -12,6 +12,7 @@ export default {
     path: String,
     el: String,
     filter: Object,
+    orderBy: String,
     fields: String,
     depth: Number,
   },
@@ -62,7 +63,8 @@ export default {
           const sub = new DustClient.RecordSubscription(chan, {
             basePath: this.path,
             filter: this.filter,
-            fields: this.fields.split(" "),
+            fields: this.fields ? this.fields.split(" ") : [],
+            orderBy: this.orderBy,
           });
           console.log("sky-foreach sub started");
           this.sub = sub;

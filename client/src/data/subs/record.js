@@ -9,6 +9,7 @@ export class RecordSubscription {
     this.fields = opts.fields || [];
     this.selfItems = this.fields.join(',') == '@';
     this.filter = opts.filter || {};
+    this.orderBy = opts.orderBy || false;
     this.stats = {
       hidden: 0,
     };
@@ -36,8 +37,19 @@ export class RecordSubscription {
     return this.sub.stop();
   }
 
-  insertDoc(id, doc) {
-    const properIdx = this.items.findIndex(x => x._id > id);
+  compareDocs(x, y) {
+    // TODO: proper parsing etc.
+    if (this.orderBy === '-origin.date') {
+      const a = x.origin.date;
+      const b = y.origin.date;
+      return a > b;
+    }
+    return x._id < y._id;
+  }
+
+  insertDoc(doc) {
+    const properIdx = this.items.findIndex(this.compareDocs.bind(this, doc));
+    window.rec=this;
     if (properIdx === -1) {
       this.items.push(doc);
     } else {
@@ -52,55 +64,75 @@ export class RecordSubscription {
     }
 
     const parts = path.split('/');
+    // console.log(parts.length, parts, entry)
     if (parts.length == 1) {
       // new document
       const [id] = parts;
       const doc = {
         _id: decodeURIComponent(id),
         _path: this.basePath + '/' + id,
+        ...entry, // TODO: better description of bulk adding folders
       };
       if (this.selfItems) {
         doc.value = entry;
-        //console.log('added', entry);
       } else if (this.fields.length) {
         this.fields.forEach(x => doc[x] = null);
       }
 
       // store it
       this.idMap.set(id, doc);
-      if (Object.keys(this.filter).length == 0) {
-        this.insertDoc(id, doc);
+      if (Object.keys(this.filter).length == 0 && !this.orderBy) {
+        this.insertDoc(doc);
       } else {
         this.stats.hidden++;
       }
 
-    } else if (parts.length == 2) {
+    } else if (parts.length >= 2) {
       // add field to existing doc
-      const [id, field] = parts;
+      const [id, ...fieldPath] = parts;
+      const fieldStr = fieldPath.join('.');
+      const field = fieldPath.pop();
       const doc = this.idMap.get(id);
-      //switch (entry.Type)
-      doc[field] = entry || '';
+
+      let handle = doc;
+      for (const key of fieldPath)
+        handle = handle[key] || {};
+
+      if (globalThis.Vue) {
+        globalThis.Vue.set(handle, field, entry || '');
+      } else {
+        handle[field] = entry || '';
+      }
+
+      let shouldExist = true;
 
       // check filter
-      if (field in this.filter) {
-        if (doc[field] === this.filter[field]) {
-          const idx = this.items.indexOf(doc);
-          if (idx === -1) {
-            this.stats.hidden--;
-            this.insertDoc(id, doc);
-          }
-          //console.log('dropping document', id, 'due to filter on', field);
-          //const idx = this.items.indexOf(doc);
-          //if (idx >= 0) {
-          //  this.items.splice(idx, 1);
-          //}
-        } else {
-          // filter fails
-          const idx = this.items.indexOf(doc);
-          if (idx !== -1) {
-            this.stats.hidden++;
-            this.items.splice(idx, 1);
-          }
+      if (fieldStr in this.filter) {
+        if (handle[field] === this.filter[fieldStr]) {
+          shouldExist = false;
+        }
+      }
+
+      // check sort field
+      // TODO
+      if (this.orderBy === '-origin.date') {
+        if (!doc.origin || !doc.origin.date) {
+          shouldExist = false;
+          // TODO: respect orderBy field as well = false;
+        }
+      }
+
+      if (shouldExist) {
+        const idx = this.items.indexOf(doc);
+        if (idx === -1) {
+          this.stats.hidden--;
+          this.insertDoc(doc);
+        }
+      } else {
+        const idx = this.items.indexOf(doc);
+        if (idx !== -1) {
+          this.stats.hidden++;
+          this.items.splice(idx, 1);
         }
       }
     }
@@ -123,21 +155,26 @@ export class RecordSubscription {
         console.warn('recordsub got changed packet for entire document. not implemented!', path, entry);
       }
 
-    } else if (parts.length == 2) {
+    } else if (parts.length >= 2) {
       // changed field on existing doc
-      const [id, field] = parts;
+      const [id, ...fieldPath] = parts;
+      const fieldStr = fieldPath.join('.');
+      const field = fieldPath.pop();
       const doc = this.idMap.get(id);
-      //switch (entry.Type)
+
+      let handle = doc;
+      for (const key of fieldPath)
+        handle = handle[key] || {};
 
       // check filter
-      if (field in this.filter) {
-        const didMatch = doc[field] === this.filter[field];
-        const doesMatch = (entry || '') === this.filter[field];
+      if (fieldStr in this.filter) {
+        const didMatch = handle[field] === this.filter[fieldStr];
+        const doesMatch = (entry || '') === this.filter[fieldStr];
         if (!didMatch && doesMatch) {
           const idx = this.items.indexOf(doc);
           if (idx === -1) {
             this.stats.hidden--;
-            this.insertDoc(id, doc);
+            this.insertDoc(doc);
           }
         } else if (didMatch && !doesMatch) {
           // filter now fails
@@ -150,7 +187,9 @@ export class RecordSubscription {
       }
 
       // actually do the thing lol
-      doc[field] = entry || '';
+      handle[field] = entry || '';
+
+      // TODO: resort items if this was an orderBy field
     }
   }
 
@@ -173,11 +212,24 @@ export class RecordSubscription {
         this.items.splice(idx, 1);
       }
 
-    } else if (parts.length == 2) {
+    } else if (parts.length >= 2) {
       // remove field from existing doc
-      const [id, field] = parts;
+      const [id, ...fieldPath] = parts;
+      const fieldStr = fieldPath.join('.');
+      const field = fieldPath.pop();
       const doc = this.idMap.get(id);
-      doc[field] = null;
+
+      if (!doc) {
+        // server inefficiency; deletion a name deletes everything below
+        console.warn('ignored field deletion for nonexistant document');
+        return;
+      }
+
+      let handle = doc;
+      for (const key of fieldPath)
+        handle = handle[key] || {};
+
+      handle[field] = null;
 
       // remove doc from output, if field is a filter
       if (field in this.filter) {
@@ -191,7 +243,6 @@ export class RecordSubscription {
   }
 
   onReady() {
-    //console.log('Subscription is ready.', this.idMap);
     if (this.readyCbs) {
       this.readyCbs.resolve(this.items);
       this.readyCbs = null;
