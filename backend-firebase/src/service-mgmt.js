@@ -1,6 +1,7 @@
 const {Datadog} = require('./lib/datadog.js');
 const {AsyncCache} = require('./lib/async-cache.js');
 const {
+  Environment,
   PathFragment,
   SkylinkServer, SkylinkClient, SkylinkClientEntry,
 } = require('@dustjs/skylink');
@@ -156,10 +157,32 @@ class UserService {
     this.serviceMgmt = serviceMgmt;
     // indirect SkylinkClient impl
     this.proxiedClient = new ProxiedServiceClient(this);
+
+    this.env = new Environment;
+    this.env.bind('/mnt', { getEntry: this.getMntEntry.bind(this) });
+    this.getEntry = this.env.getEntry.bind(this.env);
+
+    this.env.bind('/recent-frames', { getEntry: (path) => {
+      return {
+        get() {
+          return {Type: 'Folder'};
+        },
+        enumerate: async (enumer) => {
+          enumer.visit({Type: 'Folder'});
+          if (!enumer.canDescend()) return;
+          const recents = await this.docRef.collection('frames').orderBy('origin.date', 'desc').limit(25).get();
+          for (const frameDoc of recents.docs) {
+            enumer.descend(frameDoc.id);
+            enumer.visit({Type: 'Folder'});
+            enumer.ascend();
+          }
+        },
+      };
+    }});
   }
 
   async processWaitingFrameDocument(docSnap) {
-    console.log('received waiting frame', docSnap.get('request.Op'));
+    console.log('received waiting frame', docSnap.get('request.Op'), docSnap.id);
     let response = {
       Ok: false,
     };
@@ -209,6 +232,7 @@ class UserService {
       this.stopListening = this.docRef
         .collection('frames')
         .where('state', '==', 'Waiting')
+        .orderBy('origin.date')
         .limit(5)
         .onSnapshot(async querySnap => {
           for (const docChange of querySnap.docChanges()) {
@@ -225,7 +249,7 @@ class UserService {
     }
   }
 
-  getEntry(path) {
+  getMntEntry(path) {
     if (this.latestSnap.apiHostname === myHostname) {
       const endpoint = this.localEndpoints.get(this.svcId);
       if (endpoint) {
