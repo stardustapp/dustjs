@@ -50,7 +50,10 @@ export class FirebaseLaunchpad extends BaseLaunchpad {
 
     const assumeUserMeta = document
       .querySelector('meta[name=x-stardust-assume-user]');
-    const assumeUser = assumeUserMeta && assumeUserMeta.content || false;
+    const urlArgs = new URLSearchParams(document.location.search);
+    const assumeUser = urlArgs.get('assumeUser')
+      ?? assumeUserMeta?.content
+      ?? false;
 
     // TODO
     const subdomain = 'starSubdomain' in window ? window.starSubdomain : 'api.';
