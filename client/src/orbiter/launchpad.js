@@ -57,8 +57,9 @@ export class FirebaseLaunchpad extends BaseLaunchpad {
 
     // TODO
     const subdomain = 'starSubdomain' in window ? window.starSubdomain : 'api.';
+    const specificDomain = 'starDomain' in window ? window.starDomain : localStorage.domainName;
 
-    return new FirebaseLaunchpad(localStorage.domainName || location.hostname, appId, assumeUser, subdomain);
+    return new FirebaseLaunchpad(specificDomain || location.hostname, appId, assumeUser, subdomain);
   }
 
   async discover() {
