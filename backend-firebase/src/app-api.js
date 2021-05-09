@@ -61,7 +61,10 @@ exports.createPublicApi = async function createPublicApi(env) {
       // add the given device to the user's service environment
       const sessionSnap = await firebase.sessionColl.doc(sessionId).get();
       const serviceEnv = await firebase.getUserServices(sessionSnap.get('uid'));
-      await serviceEnv.registerServiceDevice(serviceId, deviceRef);
+      const closeCb = await serviceEnv.registerServiceDevice(serviceId, deviceRef);
+
+      // TODO: this path is all internal-detail should be wired elsewhere
+      deviceRef._device.remote.server.shutdownHandlers.push(closeCb);
 
       return { Type: 'String', StringValue: 'ok' };
     }}));

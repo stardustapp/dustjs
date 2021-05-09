@@ -76,9 +76,6 @@ class UserServicesMgmt {
   async registerServiceDevice(serviceId, deviceEntry) {
     this.localEndpoints.set(serviceId, deviceEntry);
 
-    // TODO: subscribe to the root entry and shut down if our sub stops
-    // (await deviceEntry.getEntry('/')).subscribe(...)
-
     await this.collRef
       .doc(serviceId)
       .set({
@@ -87,6 +84,25 @@ class UserServicesMgmt {
         // serviceUri: 'todo://',
         canFireProxy: true,
       });
+
+    // temporary shutdown mechanism
+    // TODO: health should instead be sniffed from deviceEntry like so:
+    // (await deviceEntry.getEntry('/')).subscribe(...)
+    // ^^ do the shut down if that sub stops
+    return async () => {
+      if (this.localEndpoints.get(serviceId) === deviceEntry) {
+        console.log('service-mgmt: Removing local endpoint for', serviceId);
+        this.localEndpoints.delete(serviceId);
+
+        await this.collRef
+          .doc(serviceId)
+          .update({
+            canFireProxy: false,
+          }, {
+            apiHostname: myHostname,
+          });
+      }
+    }
   }
 
   getEntry(fullPath) {
@@ -226,6 +242,15 @@ class UserService {
     // set up observing if it's us
     if (docSnap.get('apiHostname') === myHostname && docSnap.get('canFireProxy')) {
       if (this.stopListening) return;
+
+      if (!this.localEndpoints.has(this.svcId)) {
+        console.log('service-mgmt rejecting fireproxy for nonexistent svcId', this.svcId, this.docRef.path);
+        docSnap.ref.set({
+          canFireProxy: false,
+        });
+        return;
+      }
+
       console.log('service-mgmt starting listener for', this.docRef.path);
       this.stopListening = this.docRef
         .collection('frames')

@@ -10,6 +10,7 @@ export class SkylinkClientDevice {
     this.ready = Promise.resolve(remote.ready)
       .then(() => remote.performOp({Op: 'ping'}));
     this.closed = new Promise(resolve => this.markClosed = resolve);
+    remote.shutdownHandlers.push(this.markClosed);
   }
 
   getEntry(path) {

@@ -33,6 +33,8 @@ export class ReversedSkylinkClient extends SkylinkClient {
         `TODO: only Devices with a ReversalPrefix can be sent over the wire`);
       return new DeviceEntry(raw.Name, new SkylinkClientDevice(this, raw.ReversalPrefix));
     });
+
+    skylink.shutdownHandlers.push(reason => this.handleShutdown(reason));
   }
 
   volley(request) {
