@@ -1,6 +1,6 @@
 {
   "name": "@dustjs/backend-firebase",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "",
   "main": "src/app-api.js",
   "scripts": {
@@ -11,7 +11,7 @@
   "dependencies": {
     "@dustjs/data-tree": "^0.1.2",
     "@dustjs/server-koa": "^0.2.1",
-    "@dustjs/skylink": "^0.3.7",
+    "@dustjs/skylink": "^0.3.8",
     "firebase-admin": "^9.4.1",
     "moment": "^2.29.1",
     "node-fetch": "^2.6.0"
