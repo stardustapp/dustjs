@@ -1,6 +1,7 @@
 const {Datadog} = require('./lib/datadog.js');
 const {AsyncCache} = require('./lib/async-cache.js');
 const {FirestoreCollectionDevice} = require('./firestore/collection-device.js');
+const {StringEntry} = require('@dustjs/skylink');
 
 const {
   Environment,
@@ -179,6 +180,10 @@ class UserService {
     this.env = new Environment;
     this.env.bind('/mnt', { getEntry: this.getMntEntry.bind(this) });
     this.getEntry = this.env.getEntry.bind(this.env);
+
+    this.env.bind('/current server', { getEntry: (path) => ({
+      get: () => new StringEntry('current server', this.latestSnap?.apiHostname),
+    })});
 
     frameCollSpecPromise.then(frameCollSpec => {
       this.env.bind('/recent-frames', new FirestoreCollectionDevice(
