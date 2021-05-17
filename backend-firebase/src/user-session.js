@@ -1,6 +1,7 @@
 const {Environment, FunctionDevice} = require('@dustjs/skylink');
 
 const {FirestoreRegionDevice} = require('./firestore/region-device.js');
+const {SchemaDevice} = require('./schema-device.js');
 
 // const Firestore = require('./firestore-lib.js');
 // const {DatePartitionedLog} = require('./firestore/date-log.js');
@@ -21,6 +22,9 @@ class UserSession {
       new FirestoreRegionDevice(this, 'config'));
     this.env.bind('/mnt/persist',
       new FirestoreRegionDevice(this, 'persist'));
+
+    this.env.bind('/mnt/schema',
+      new SchemaDevice(this.appMap));
 
     // automated sessions authenticated by static randomized strings
     this.env.bind('/mnt/assume-user', new FunctionDevice({
