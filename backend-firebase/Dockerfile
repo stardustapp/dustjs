@@ -1,4 +1,4 @@
-FROM node:14-alpine
+FROM node:16-alpine
 
 # Add system deps
 #RUN apk add --no-cache python build-base
