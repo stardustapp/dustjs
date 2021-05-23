@@ -119,12 +119,14 @@ class UserServicesMgmt {
         get() {
           return {Type: 'Folder'};
         },
-        enumerate: (enumer) => {
+        enumerate: async (enumer) => {
           enumer.visit({Type: 'Folder'});
           if (!enumer.canDescend()) return;
           for (const [name, svc] of this.services) {
             enumer.descend(name);
-            enumer.visit({Type: 'Folder'});
+            const svcEnt = await svc.getEntry('/');
+            if (svcEnt.enumerate) await svcEnt.enumerate(enumer);
+            else enumer.visit({Type: 'Folder'});
             enumer.ascend();
           }
         },
