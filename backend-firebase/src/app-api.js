@@ -29,7 +29,9 @@ exports.createPublicApi = async function createPublicApi(env) {
   ).split(':');
 
   // load all the application schema models
-  const {Compiler, SchemaLoader} = env.USING_BABEL ? require('@dustjs/data-tree') : await import('@dustjs/data-tree');
+  const {Compiler, SchemaLoader} = (process.env.USING_BABEL || env.USING_BABEL)
+    ? require('@dustjs/data-tree')
+    : await import('@dustjs/data-tree');
   const loader = new SchemaLoader(resolve(__dirname, '..'));
   for (const schemaDir of schemaDirs) {
     await loader.loadAllInDirectory(schemaDir);
